@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+venv/
+rasp/torre.db
+rasp/config.env
+.vscode/
+.idea/
