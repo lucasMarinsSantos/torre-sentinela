@@ -6,679 +6,694 @@
 <title>Torre Sentinela</title>
 <style>
   :root {
-    --bg: #090d0b; --painel: #101613; --painel2: #141c18; --borda: #1f2b25;
-    --texto: #d9e6de; --suave: #7d9186; --verde: #3ddc84; --ambar: #f5b041;
-    --laranja: #ff8a3d; --vermelho: #ff4b4b; --azul: #5aa9ff; --cinza: #8a9a91;
-    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+    --fundo: #0e1113; --card: #161a1d; --card2: #1c2125; --borda: #2a3136;
+    --texto: #e4e8ea; --suave: #8b979e; --verde: #4cc38a; --ambar: #e8a838;
+    --vermelho: #e5484d; --azul: #6aa9e9;
+    --mono: ui-monospace, "DejaVu Sans Mono", Consolas, monospace;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--texto);
-         font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-           padding: 14px 20px; border-bottom: 1px solid var(--borda); background: #0b100e; }
-  .logo { font-weight: 800; letter-spacing: .14em; font-size: 15px; display: flex; align-items: center; gap: 10px; }
-  .pill { font: 600 12px var(--mono); padding: 4px 10px; border-radius: 99px; border: 1px solid var(--borda);
-          color: var(--suave); display: inline-flex; align-items: center; gap: 6px; }
-  .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--suave); }
-  .pill.ok .dot { background: var(--verde); box-shadow: 0 0 8px var(--verde); }
-  .pill.sim { color: var(--azul); border-color: #22405f; }
-  .sistema { font: 12px var(--mono); color: var(--suave); }
-  .espaco { flex: 1; }
-  .badge { font: 800 13px var(--mono); letter-spacing: .12em; padding: 6px 14px; border-radius: 6px;
-           background: #1a221e; color: var(--suave); border: 1px solid var(--borda); }
-  .badge[data-e="DESARMADO"] { color: var(--verde); border-color: #1e5a39; background: #0f2219; }
-  .badge[data-e="ARMANDO"], .badge[data-e="VIGIANDO"], .badge[data-e="CALIBRANDO"] { color: var(--ambar); border-color: #5e4719; background: #221a0b; }
-  .badge[data-e="ARMANDO"], .badge[data-e="CALIBRANDO"] { animation: piscar 1s steps(2) infinite; }
-  .badge[data-e="VARRENDO"] { color: var(--laranja); border-color: #6a3818; background: #26140a; }
-  .badge[data-e="TRAVADO"] { color: #fff; border-color: var(--vermelho); background: #8a1616; animation: pulsar .6s ease-in-out infinite alternate; }
-  .badge[data-e="MANUAL"] { color: var(--azul); border-color: #22405f; background: #0d1a28; }
-  .badge.alerta { color: #fff; background: var(--vermelho); border-color: var(--vermelho); animation: pulsar .3s ease-in-out infinite alternate; }
-  @keyframes piscar { 50% { opacity: .35; } }
-  @keyframes pulsar { to { box-shadow: 0 0 18px var(--vermelho); } }
-  @media (prefers-reduced-motion: reduce) { .badge { animation: none !important; } }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--fundo); color: var(--texto);
+         font: 15px/1.45 system-ui, "Segoe UI", Ubuntu, Roboto, sans-serif; }
+  button, input { font: inherit; }
 
-  main { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(320px, 1fr); gap: 16px; padding: 16px 20px 28px; max-width: 1440px; margin: 0 auto; }
-  @media (max-width: 960px) {
-    main { grid-template-columns: 1fr; padding: 12px; } header { padding: 12px; }
-    /* no celular: radar, controle e incidentes primeiro */
-    main > .coluna { display: contents; }
-    [data-o="1"] { order: 1; } [data-o="2"] { order: 2; } [data-o="3"] { order: 3; } [data-o="4"] { order: 4; }
-    [data-o="5"] { order: 5; } [data-o="6"] { order: 6; } [data-o="7"] { order: 7; } [data-o="8"] { order: 8; } [data-o="9"] { order: 9; }
+  header { display: flex; align-items: center; gap: 14px; padding: 12px 20px; border-bottom: 1px solid var(--borda); }
+  header h1 { margin: 0; font-size: 17px; font-weight: 700; }
+  #conexao { color: var(--suave); font-size: 13px; }
+  #conexao::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+                     background: var(--vermelho); margin-right: 7px; }
+  #conexao.ok::before { background: var(--verde); }
+  #estado { margin-left: auto; font: 700 13px var(--mono); letter-spacing: .06em; padding: 6px 12px;
+            border-radius: 6px; border: 1px solid var(--borda); color: var(--suave); white-space: nowrap; }
+  #estado.verde { color: var(--verde); border-color: var(--verde); }
+  #estado.ambar { color: var(--ambar); border-color: var(--ambar); }
+  #estado.azul { color: var(--azul); border-color: var(--azul); }
+  #estado.vermelho { color: #fff; background: var(--vermelho); border-color: var(--vermelho); }
+
+  #faixa { margin: 12px 20px 0; padding: 10px 14px; border-radius: 8px; font-size: 14px;
+           background: #3a2a10; border: 1px solid #7a5a1c; color: #f3d9a4; }
+  #faixa.erro { background: #3b1518; border-color: #8c2b30; color: #f5c6c8; }
+
+  main { display: grid; grid-template-columns: minmax(0, 3fr) minmax(300px, 2fr); gap: 16px;
+         padding: 16px 20px 32px; max-width: 1300px; margin: 0 auto; align-items: start; }
+  .coluna { display: grid; gap: 16px; min-width: 0; }
+  @media (max-width: 900px) {
+    main { grid-template-columns: minmax(0, 1fr); padding: 12px; }
+    header { padding: 10px 12px; flex-wrap: wrap; }
+    #faixa { margin: 12px 12px 0; }
+    /* no celular: radar, controle e depois o resto */
+    main { gap: 12px; }
+    .coluna { display: contents; }
+    #card-radar { order: 1; } #card-controle { order: 2; } #card-incidentes { order: 3; }
+    details.card { order: 4; }
   }
-  .card { background: var(--painel); border: 1px solid var(--borda); border-radius: 12px; padding: 16px; }
-  .card h2 { margin: 0 0 12px; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--suave); font-weight: 700; }
-  .coluna { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+  .card { background: var(--card); border: 1px solid var(--borda); border-radius: 10px; padding: 16px; min-width: 0; }
+  .card.alarme { border-color: var(--vermelho); }
+  h2 { margin: 0 0 12px; font-size: 14px; font-weight: 700; }
   .cab { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
-  .cab small { color: var(--suave); font: 12px var(--mono); }
+  .cab small, .nota { color: var(--suave); font-size: 13px; }
+  .nota { margin: 8px 0 0; }
 
-  .radar-card { padding: 12px 12px 14px; }
-  .radar-card.alerta { border-color: var(--vermelho); box-shadow: 0 0 0 1px var(--vermelho), 0 0 28px -6px var(--vermelho); }
-  #radar { width: 100%; height: auto; aspect-ratio: 2 / 1.12; display: block; }
-  #radar.mirando { cursor: crosshair; }
-  .rodape-radar { display: flex; justify-content: space-between; color: var(--suave); font-size: 12px; margin-top: 8px; gap: 10px; flex-wrap: wrap; }
-  .rodape-radar label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
-  .legenda { display: flex; gap: 12px; flex-wrap: wrap; }
-  .legenda i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
-  .leituras { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
-  @media (max-width: 560px) { .leituras { grid-template-columns: repeat(2, 1fr); } }
-  .leitura { background: var(--painel2); border: 1px solid var(--borda); border-radius: 8px; padding: 10px 12px; min-width: 0; }
-  .leitura span { display: block; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--suave); }
-  .leitura b { font: 700 22px var(--mono); }
-  .leitura small { display: block; font: 12px var(--mono); color: var(--suave); min-height: 1.2em; }
-  .leitura.alerta b { color: var(--vermelho); }
-  .leitura.pir-on b { color: var(--ambar); }
+  /* o canvas fica dentro de uma caixa de proporção fixa */
+  .radar-caixa { position: relative; width: 100%; padding-top: 54%; }
+  .radar-caixa canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; }
+  .radar-caixa canvas.mirando { cursor: crosshair; }
+  .sob-radar { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+               color: var(--suave); font-size: 12.5px; margin-top: 8px; }
+  .sob-radar i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin: 0 5px 0 10px; }
+  .sob-radar i:first-child { margin-left: 0; }
+  .sob-radar label { cursor: pointer; white-space: nowrap; }
 
-  .botao { font: inherit; font-weight: 700; border-radius: 8px; border: 1px solid var(--borda); background: var(--painel2);
-           color: var(--texto); padding: 10px 14px; cursor: pointer; transition: filter .15s, transform .05s; }
-  .botao:hover { filter: brightness(1.25); }
-  .botao:active { transform: translateY(1px); }
-  .botao:disabled { opacity: .4; cursor: not-allowed; }
-  .botao:focus-visible, .segmentado button:focus-visible, .dia:focus-visible { outline: 2px solid var(--azul); outline-offset: 2px; }
-  .botao.grande { width: 100%; padding: 16px; font-size: 17px; letter-spacing: .08em; }
-  .botao.armar { background: #3a2a0a; border-color: #8a6516; color: var(--ambar); }
-  .botao.desarmar { background: #0f2a1b; border-color: #1f7a48; color: var(--verde); }
-  .botao.perigo { background: #3a0f0f; border-color: #8a2020; color: #ffb3b3; }
-  .botao.perigo.on { background: var(--vermelho); color: #fff; box-shadow: 0 0 16px var(--vermelho); }
-  .botao.largo { width: 100%; margin-top: 10px; }
-  .descricao { color: var(--suave); font-size: 13.5px; margin: 10px 2px 0; }
-  .mapa-status { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--suave); margin-top: 10px; }
-  .mapa-status b { color: var(--texto); }
-  .sugestao { margin-top: 12px; background: #2a210c; border: 1px solid #6a5218; color: #ffd98a; border-radius: 8px; padding: 10px 12px; font-size: 13.5px; }
+  .leituras { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+  @media (max-width: 560px) { .leituras { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .leitura { background: var(--card2); border-radius: 8px; padding: 9px 12px; min-width: 0; }
+  .leitura span { display: block; font-size: 12px; color: var(--suave); }
+  .leitura b { display: block; font: 700 20px var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .leitura small { display: block; font-size: 12px; color: var(--suave); min-height: 1.4em;
+                   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .leitura.alarme b { color: var(--vermelho); }
+  .leitura.aviso b { color: var(--ambar); }
 
-  .segmentado { display: grid; grid-template-columns: 1fr 1fr; background: var(--painel2); border: 1px solid var(--borda); border-radius: 8px; padding: 3px; }
-  .segmentado button { font: inherit; font-weight: 700; border: 0; background: transparent; color: var(--suave); padding: 9px; border-radius: 6px; cursor: pointer; }
-  .segmentado button.ativo { background: #22302a; color: var(--texto); }
-  .manual { margin-top: 14px; }
+  .botao { border-radius: 8px; border: 1px solid var(--borda); background: var(--card2); color: var(--texto);
+           padding: 10px 14px; cursor: pointer; font-weight: 600; }
+  .botao:hover { border-color: var(--suave); }
+  .botao:disabled { opacity: .45; cursor: not-allowed; }
+  .botao.ativo { border-color: var(--azul); color: var(--azul); }
+  .botao.principal { width: 100%; padding: 16px; font-size: 17px; font-weight: 700; }
+  .botao.armar { background: var(--ambar); border-color: var(--ambar); color: #1c1403; }
+  .botao.desarmar { background: var(--verde); border-color: var(--verde); color: #04170d; }
+  .botao.laser-on { background: var(--vermelho); border-color: var(--vermelho); color: #fff; }
+  button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--azul); outline-offset: 2px; }
+  .par { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  #descricao { margin: 12px 0 0; font-size: 14px; }
+  #sugestao { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: #3a2a10; color: #f3d9a4; font-size: 13.5px; }
+  #manual { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--borda); }
 
-  .linha { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 0; }
-  .linha + .linha, .bloco + .linha, .linha + .bloco, .bloco + .bloco { border-top: 1px solid var(--borda); }
-  .bloco { padding: 9px 0; }
-  .linha label, .bloco label { font-weight: 600; }
-  .linha small, .bloco small { display: block; color: var(--suave); font-weight: 400; font-size: 12.5px; }
-  .valor { font: 700 14px var(--mono); color: var(--ambar); min-width: 64px; text-align: right; white-space: nowrap; }
-  input[type=range] { width: 100%; accent-color: var(--ambar); }
-  .chave { position: relative; width: 46px; height: 26px; flex: none; }
-  .chave input { opacity: 0; width: 0; height: 0; position: absolute; }
-  .chave i { position: absolute; inset: 0; background: #26302b; border-radius: 99px; transition: .2s; cursor: pointer; }
-  .chave i::after { content: ""; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px; border-radius: 50%; background: #cfd8d3; transition: .2s; }
-  .chave input:checked + i { background: #1f7a48; }
-  .chave input:checked + i::after { transform: translateX(20px); }
-  .chave input:focus-visible + i { outline: 2px solid var(--azul); outline-offset: 2px; }
-  .duplo { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
-  .duplo span { font-size: 12px; color: var(--suave); }
+  .ajuste { padding: 10px 0; border-top: 1px solid var(--borda); }
+  .ajuste:first-of-type { border-top: 0; padding-top: 0; }
+  .ajuste .topo { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .ajuste label { font-weight: 600; }
+  .ajuste small { display: block; color: var(--suave); font-size: 12.5px; font-weight: 400; }
+  .valor { font: 700 14px var(--mono); color: var(--ambar); white-space: nowrap; }
+  input[type=range] { width: 100%; margin: 8px 0 0; accent-color: var(--ambar); }
+  input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--verde); flex: none; }
+  input[type=time] { background: var(--fundo); color: var(--texto); border: 1px solid var(--borda);
+                     border-radius: 6px; padding: 6px 8px; color-scheme: dark; }
+  .horarios { display: flex; gap: 14px; flex-wrap: wrap; margin: 10px 0; font-size: 13px; color: var(--suave); }
+  .horarios label { display: grid; gap: 4px; }
+  .dias { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .dia { border: 1px solid var(--borda); background: var(--card2); color: var(--suave); border-radius: 6px;
+         padding: 5px 8px; cursor: pointer; font-size: 13px; }
+  .dia.on { color: var(--texto); border-color: var(--verde); }
 
-  .horarios { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0; }
-  .horarios label { font-size: 12.5px; color: var(--suave); font-weight: 600; display: flex; flex-direction: column; gap: 4px; }
-  input[type=time] { font: inherit; background: #0b100e; color: var(--texto); border: 1px solid var(--borda); border-radius: 8px; padding: 8px 10px; color-scheme: dark; }
-  .dias { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 10px; }
-  .dia { font: 700 12px var(--mono); border: 1px solid var(--borda); background: var(--painel2); color: var(--suave); border-radius: 6px; padding: 6px 8px; cursor: pointer; }
-  .dia.on { background: #22302a; color: var(--texto); border-color: #3a5a48; }
+  details.card { padding: 0; }
+  details.card > summary { padding: 14px 16px; cursor: pointer; font-size: 14px; font-weight: 700; }
+  details.card > .dentro { padding: 0 16px 16px; }
 
-  .incidente-atual { background: #2a1010; border: 1px solid #8a2020; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 14px; color: #ffd0d0; }
-  .incidentes { list-style: none; margin: 0; padding: 0; max-height: 330px; overflow-y: auto; }
-  .incidentes li { display: grid; grid-template-columns: 56px 1fr auto; gap: 10px; align-items: start; padding: 9px 4px; border-top: 1px solid var(--borda); cursor: pointer; border-radius: 6px; }
-  .incidentes li:first-child { border-top: 0; }
-  .incidentes li.vazio { display: block; cursor: default; }
-  .incidentes li:hover, .incidentes li.sel { background: var(--painel2); }
-  .incidentes time { font: 12px var(--mono); color: var(--suave); padding-top: 3px; }
-  .incidentes .motivo { color: var(--suave); font-size: 12.5px; }
-  .incidentes .num { font: 12px var(--mono); color: var(--suave); text-align: right; white-space: nowrap; }
-  .chip { display: inline-block; font: 700 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; border-radius: 4px; padding: 2px 7px; margin-bottom: 3px; }
-  .c-pessoa { background: #4a1414; color: #ffb3b3; }
-  .c-falso { background: #232b27; color: var(--cinza); }
-  .c-movimento { background: #3a2c0c; color: var(--ambar); }
-  .c-indefinido { background: #13263b; color: var(--azul); }
+  .lista { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow-y: auto; }
+  .lista li { padding: 9px 0; border-top: 1px solid var(--borda); font-size: 13.5px; }
+  .lista li:first-child { border-top: 0; }
+  .lista time { font: 12px var(--mono); color: var(--suave); }
+  #incidentes li.item { display: grid; grid-template-columns: 54px minmax(0, 1fr) auto; gap: 10px; cursor: pointer; }
+  #incidentes li.item:hover, #incidentes li.sel { background: var(--card2); }
+  #incidentes .motivo { color: var(--suave); font-size: 12.5px; }
+  #incidentes .num { font: 12px var(--mono); color: var(--suave); text-align: right; white-space: nowrap; }
+  .classe { font-weight: 700; }
+  .classe.pessoa { color: var(--vermelho); }
+  .classe.movimento { color: var(--ambar); }
+  .classe.falso, .classe.indefinido { color: var(--suave); }
+  #inc-atual { background: #3b1518; color: #f5c6c8; border-radius: 8px; padding: 9px 12px; margin-bottom: 10px; font-size: 14px; }
+  #eventos li { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 10px; padding: 6px 0; }
+  .ev-alvo, .ev-alerta { color: #f09a9d; }
+  .ev-aviso, .ev-sugestao { color: var(--ambar); }
 
-  .barras { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; align-items: end; height: 110px; margin-top: 6px; }
-  .barra { display: flex; flex-direction: column-reverse; height: 100%; justify-content: flex-start; gap: 2px; }
-  .barra i { display: block; border-radius: 3px; min-height: 0; }
-  .barra-rot { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; font: 11px var(--mono); color: var(--suave); text-align: center; margin-top: 4px; }
-  .horas { display: grid; grid-template-columns: repeat(24, 1fr); gap: 2px; align-items: end; height: 46px; margin-top: 6px; }
-  .horas i { background: #ff6b6b; border-radius: 2px 2px 0 0; display: block; min-height: 2px; opacity: .85; }
-  .horas-rot { display: flex; justify-content: space-between; font: 11px var(--mono); color: var(--suave); margin-top: 3px; }
-  .resumo { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--suave); }
-  .resumo b { color: var(--texto); font-family: var(--mono); }
-  .sub { margin: 14px 0 0; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--suave); }
+  .diag { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; font-size: 13.5px; }
+  .diag dt { color: var(--suave); }
+  .diag dd { margin: 0; font-family: var(--mono); }
+  .diag dd.ruim { color: var(--vermelho); }
+  .dias7 { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin: 10px 0 14px; text-align: center; font-size: 12px; color: var(--suave); }
+  .dias7 b { display: block; font: 700 15px var(--mono); color: var(--texto); }
+  a { color: var(--azul); }
 
-  .vazio { color: var(--suave); font-size: 13.5px; }
-
-  .eventos { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow-y: auto; }
-  .eventos li { display: grid; grid-template-columns: 62px 1fr; gap: 10px; padding: 7px 0; border-top: 1px solid var(--borda); font-size: 13.5px; }
-  .eventos li:first-child { border-top: 0; }
-  .eventos time { font: 12px var(--mono); color: var(--suave); padding-top: 2px; }
-  .eventos .tipo-alvo, .eventos .tipo-alerta { color: #ff8b8b; }
-  .eventos .tipo-armado, .eventos .tipo-pir { color: var(--ambar); }
-  .eventos .tipo-desarmado { color: var(--verde); }
-  .eventos .tipo-calibracao, .eventos .tipo-ignorado, .eventos .tipo-agenda { color: var(--azul); }
-  .eventos .tipo-sugestao { color: #ffd98a; }
-  .aviso { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: #2a1010; color: #ffd0d0; border: 1px solid #8a2020;
-           padding: 10px 16px; border-radius: 8px; font-weight: 600; opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 5; }
-  .aviso.ok { background: #0f2a1b; color: #c8f5da; border-color: #1f7a48; }
-  .aviso.visivel { opacity: 1; }
-  .confirmar { display: flex; gap: 6px; }
+  #aviso { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: var(--card2);
+           border: 1px solid var(--borda); padding: 10px 16px; border-radius: 8px; font-weight: 600;
+           opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 90vw; }
+  #aviso.visivel { opacity: 1; }
+  #aviso.erro { border-color: var(--vermelho); color: #f5c6c8; }
 </style>
 </head>
 <body>
 <header>
-  <div class="logo">
-    TORRE SENTINELA
-  </div>
-  <span id="conexao" class="pill"><span class="dot"></span><span>Conectando…</span></span>
-  <span id="sistema" class="sistema"></span>
-  <span class="espaco"></span>
-  <span id="badge" class="badge" data-e="DESCONECTADO">DESCONECTADO</span>
+  <h1>Torre Sentinela</h1>
+  <span id="conexao">Conectando...</span>
+  <span id="estado">--</span>
 </header>
+<div id="faixa" hidden></div>
 
 <main>
   <div class="coluna">
-    <section data-o="1" class="card radar-card" id="radar-card">
-      <canvas id="radar" aria-label="Radar da torre"></canvas>
-      <div class="rodape-radar">
-        <span class="legenda">
-          <span><i style="background:#3ddc84"></i>ambiente</span>
-          <span><i style="background:#ff4b4b"></i>intruso</span>
-          <span><i style="background:#5aa9ff"></i>mapa calibrado</span>
-          <span><i style="background:#ff8a3d"></i>detecções 24 h</span>
-        </span>
-        <span>
-          <label><input type="checkbox" id="ver-mapa" checked> Mapa</label>
-          <label><input type="checkbox" id="inverter"> Inverter lados</label>
-        </span>
+    <section class="card" id="card-radar">
+      <div class="radar-caixa"><canvas id="radar" aria-label="Radar da torre"></canvas></div>
+      <div class="sob-radar">
+        <span><i style="background:#4cc38a"></i>ambiente<i style="background:#e5484d"></i>alvo<i style="background:#6aa9e9"></i>mapa</span>
+        <label><input type="checkbox" id="inverter" style="width:14px;height:14px;vertical-align:-2px"> Inverter lados</label>
       </div>
       <div class="leituras">
         <div class="leitura"><span>Ângulo</span><b id="l-ang">--</b><small id="l-faixa"></small></div>
         <div class="leitura"><span>Distância</span><b id="l-dist">--</b><small id="l-fundo"></small></div>
         <div class="leitura" id="c-alvo"><span>Alvo</span><b id="l-alvo">nenhum</b><small id="l-vel"></small></div>
-        <div class="leitura" id="c-pir"><span>PIR</span><b id="l-pir">--</b><small></small></div>
+        <div class="leitura" id="c-pir"><span>PIR</span><b id="l-pir">--</b><small id="l-pir2"></small></div>
       </div>
     </section>
 
-    <section data-o="3" class="card">
-      <div class="cab"><h2>Incidentes</h2><small id="hoje-resumo"></small></div>
-      <div id="inc-atual" class="incidente-atual" hidden></div>
-      <ul class="incidentes" id="incidentes"></ul>
-    </section>
-
-    <section data-o="7" class="card">
-      <div class="cab"><h2>Últimos 7 dias</h2><small id="taxa"></small></div>
-      <div class="resumo" id="resumo-stats"></div>
-      <div class="barras" id="barras"></div>
-      <div class="barra-rot" id="barras-rot"></div>
-      <p class="sub">Pessoas por hora do dia</p>
-      <div class="horas" id="horas"></div>
-      <div class="horas-rot"><span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>23h</span></div>
-    </section>
-
-    <section data-o="8" class="card">
-      <div class="cab"><h2>Eventos</h2></div>
-      <ul class="eventos" id="eventos"></ul>
+    <section class="card" id="card-incidentes">
+      <div class="cab"><h2>Incidentes</h2><small id="hoje"></small></div>
+      <div id="inc-atual" hidden></div>
+      <ul class="lista" id="incidentes"></ul>
     </section>
   </div>
 
   <div class="coluna">
-    <section data-o="2" class="card">
-      <h2>Controle</h2>
-      <button id="btn-armar" class="botao grande armar">ARMAR TORRE</button>
-      <p class="descricao" id="descricao">—</p>
-      <div class="mapa-status"><span id="mapa-status">Mapa do ambiente: —</span></div>
-      <button id="btn-calibrar" class="botao largo">Mapear o ambiente agora</button>
-      <div id="sugestao" class="sugestao" hidden></div>
-    </section>
-
-    <section data-o="4" class="card">
-      <h2>Modo</h2>
-      <div class="segmentado" role="group" aria-label="Modo">
-        <button id="m-auto" class="ativo">Automático</button>
-        <button id="m-manual">Manual</button>
+    <section class="card" id="card-controle">
+      <button id="btn-armar" class="botao principal armar" disabled>ARMAR</button>
+      <p id="descricao"></p>
+      <div class="par">
+        <button id="btn-calibrar" class="botao" disabled>Mapear ambiente</button>
+        <button id="btn-manual" class="botao" disabled>Modo manual</button>
       </div>
-      <div class="manual" id="painel-manual" hidden>
-        <div class="linha" style="padding:0 0 6px"><label for="mira">Mira</label><span class="valor" id="v-mira">90°</span></div>
-        <input type="range" id="mira" min="0" max="180" value="90">
-        <small style="color:var(--suave)">Dica: clique no radar para apontar.</small>
-        <button id="btn-laser" class="botao grande perigo" style="margin-top:10px">LASER DESLIGADO</button>
-      </div>
-    </section>
-
-    <section data-o="5" class="card">
-      <h2>Ajustes</h2>
-      <div class="bloco">
-        <div class="linha" style="padding:0 0 6px"><label for="alcance">Alcance de travamento<small>Até onde a torre trava no alvo</small></label><span class="valor" id="v-alcance">100 cm</span></div>
-        <input type="range" id="alcance" min="10" max="300" step="5" value="100">
-      </div>
-      <div class="bloco">
-        <div class="linha" style="padding:0"><label>Área de varredura<small>Limite os lados para focar numa porta ou corredor</small></label><span class="valor" id="v-varre">15° a 165°</span></div>
-        <div class="duplo">
-          <div><span>início</span><input type="range" id="ang-min" min="0" max="170" step="5" value="15" aria-label="Início da varredura"></div>
-          <div><span>fim</span><input type="range" id="ang-max" min="10" max="180" step="5" value="165" aria-label="Fim da varredura"></div>
+      <p class="nota" id="mapa-status"></p>
+      <div id="sugestao" hidden></div>
+      <div id="manual" hidden>
+        <div class="ajuste">
+          <div class="topo"><label for="mira">Mira<small>Arraste ou clique no radar</small></label><span class="valor" id="v-mira">90°</span></div>
+          <input type="range" id="mira" min="0" max="180" value="90">
         </div>
+        <button id="btn-laser" class="botao" style="width:100%">Ligar laser</button>
       </div>
-      <div class="bloco">
-        <div class="linha" style="padding:0 0 6px"><label for="margem">Tolerância ao mapa<small>Quanto mais perto que o normal algo precisa estar para virar alvo. Aumente se travar em parede</small></label><span class="valor" id="v-margem">20 cm</span></div>
-        <input type="range" id="margem" min="5" max="80" step="5" value="20">
-      </div>
-      <div class="linha"><label for="patrulha">Patrulha contínua<small>Varre o tempo todo, sem esperar o PIR</small></label><span class="chave"><input type="checkbox" id="patrulha"><i></i></span></div>
-      <div class="linha"><label for="som">Buzzer<small>Bipes e sirene</small></label><span class="chave"><input type="checkbox" id="som"><i></i></span></div>
-      <div class="linha"><label for="auto-recal">Recalibrar sozinha<small>Remapeia quando o mesmo setor dá 3 alarmes falsos em 1 h</small></label><span class="chave"><input type="checkbox" id="auto-recal"><i></i></span></div>
     </section>
 
-    <section data-o="6" class="card">
-      <div class="cab"><h2>Agenda</h2><span class="chave"><input type="checkbox" id="ag-ativa" aria-label="Agenda ativa"><i></i></span></div>
-      <p class="descricao" style="margin-top:0">Arma e desarma sozinha nos horários escolhidos. Você ainda pode mudar na mão; a agenda só age na virada do horário.</p>
-      <div class="horarios">
-        <label>Armar às<input type="time" id="ag-armar" value="23:00"></label>
-        <label>Desarmar às<input type="time" id="ag-desarmar" value="07:00"></label>
+    <details class="card" id="d-ajustes">
+      <summary>Ajustes</summary>
+      <div class="dentro">
+        <div class="ajuste">
+          <div class="topo"><label for="alcance">Alcance<small>Até que distância algo vira alvo</small></label><span class="valor" id="v-alcance"></span></div>
+          <input type="range" id="alcance" min="30" max="300" step="10" value="120">
+        </div>
+        <div class="ajuste">
+          <div class="topo"><label for="margem">Tolerância<small>Aumente se a torre travar em parede ou móvel</small></label><span class="valor" id="v-margem"></span></div>
+          <input type="range" id="margem" min="5" max="80" step="5" value="20">
+        </div>
+        <div class="ajuste">
+          <div class="topo"><label>Área de varredura<small>Início e fim do giro</small></label><span class="valor" id="v-varre"></span></div>
+          <input type="range" id="ang-min" min="0" max="170" step="5" value="15" aria-label="Início da varredura">
+          <input type="range" id="ang-max" min="10" max="180" step="5" value="165" aria-label="Fim da varredura">
+        </div>
+        <div class="ajuste"><div class="topo"><label for="patrulha">Varrer o tempo todo<small>Desligado, a torre fica parada e só varre quando o PIR percebe algo</small></label><input type="checkbox" id="patrulha"></div></div>
+        <div class="ajuste"><div class="topo"><label for="som">Buzzer</label><input type="checkbox" id="som"></div></div>
+        <div class="ajuste"><div class="topo"><label for="auto-recal">Remapear sozinha<small>Quando o mesmo lugar dá 3 alarmes de objeto parado em 1 hora</small></label><input type="checkbox" id="auto-recal"></div></div>
       </div>
-      <div class="dias" id="ag-dias"></div>
-      <button id="ag-salvar" class="botao">Salvar agenda</button>
-    </section>
+    </details>
 
+    <details class="card">
+      <summary>Agenda</summary>
+      <div class="dentro">
+        <div class="ajuste"><div class="topo"><label for="ag-ativa">Armar e desarmar por horário</label><input type="checkbox" id="ag-ativa"></div></div>
+        <div class="horarios">
+          <label>Armar às<input type="time" id="ag-armar" value="23:00"></label>
+          <label>Desarmar às<input type="time" id="ag-desarmar" value="07:00"></label>
+        </div>
+        <div class="dias" id="ag-dias"></div>
+        <button id="ag-salvar" class="botao">Salvar agenda</button>
+      </div>
+    </details>
+
+    <details class="card" id="d-diag">
+      <summary>Diagnóstico</summary>
+      <div class="dentro">
+        <dl class="diag">
+          <dt>Firmware</dt><dd id="g-versao">--</dd>
+          <dt>Porta</dt><dd id="g-porta">--</dd>
+          <dt>Ligado há</dt><dd id="g-uptime">--</dd>
+          <dt>Leituras sem eco</dt><dd id="g-eco">--</dd>
+          <dt>PIR agora</dt><dd id="g-pir">--</dd>
+          <dt>Reinícios do Arduino</dt><dd id="g-reinicios">--</dd>
+          <dt>Memória livre</dt><dd id="g-ram">--</dd>
+        </dl>
+        <p class="nota">Para testar o sensor, deixe a torre desarmada e ponha a mão na frente dele: a distância no radar tem que mudar. Se as leituras sem eco passarem de 60%, confira os fios Trig (A1) e Echo (A2).</p>
+        <p class="nota"><a href="/api/diagnostico">Baixar registro completo</a></p>
+      </div>
+    </details>
+
+    <details class="card" id="d-hist">
+      <summary>Histórico</summary>
+      <div class="dentro">
+        <div class="cab"><span class="nota" style="margin:0">Incidentes nos últimos 7 dias</span><small id="taxa"></small></div>
+        <div class="dias7" id="dias7"></div>
+        <ul class="lista" id="eventos"></ul>
+      </div>
+    </details>
   </div>
 </main>
-<div class="aviso" id="aviso"></div>
+<div id="aviso"></div>
 
 <script>
-const $ = (id) => document.getElementById(id);
-let S = { estado: "DESCONECTADO", conectado: false, alcance: 100, angulo: 90, dist: -1, alvo: null, laser: false,
-          ang_min: 15, ang_max: 165, fundo: null, nivel: 0, agenda: null };
-const radar = new Array(181).fill(null);   // {dist, t}
-let historico = [], trajetoSel = null, incidentesCache = [];
-let inverter = false, verMapa = true;
-try { inverter = localStorage.getItem("inverter") === "1"; verMapa = localStorage.getItem("verMapa") !== "0"; } catch (e) {}
-$("inverter").checked = inverter; $("ver-mapa").checked = verMapa;
+var $ = function (id) { return document.getElementById(id); };
+var S = { estado: "DESCONECTADO", conectado: false, armado: false, alcance: 120, margem: 20, angulo: 90, dist: -1,
+          alvo: null, laser: false, ang_min: 15, ang_max: 165, fundo: null, nivel: 0, agenda: null, reinicios: 0 };
+var servidorOk = false;
+var radar = [];                      // por ângulo: {dist, t}
+for (var i = 0; i <= 180; i++) radar.push(null);
+var incidentes = [], trajeto = null, agendaFeita = false, sujo = true;
+var inverter = false;
+try { inverter = localStorage.getItem("inverter") === "1"; } catch (e) {}
+$("inverter").checked = inverter;
 
-const DESCRICOES = {
-  DESCONECTADO: "Arduino não está conectado ao Rasp. Confira o cabo USB.",
-  DESARMADO: "Torre em repouso. Arme pelo botão ou pela agenda.",
-  ARMANDO: "Armando: 5 segundos para sair da área. Depois a torre mapeia o ambiente.",
-  CALIBRANDO: "Mapeando o ambiente: a torre mede a distância normal de cada ângulo. Deixe a área livre.",
-  VIGIANDO: "Armada. A torre para em 3 setores e vigia com o PIR e o ultrassônico; ao perceber algo, começa a varrer.",
-  VARRENDO: "Procurando: varrendo a área e comparando com o mapa do ambiente.",
-  TRAVADO: "ALVO TRAVADO! Laser apontado e alarme tocando. Se ficar parado 15 s sem o PIR confirmar, vira parte do mapa.",
-  MANUAL: "Modo manual: você controla a mira e o laser.",
+var TEXTOS = {
+  DESCONECTADO: "O Arduino não está respondendo. Confira o cabo USB entre ele e o Raspberry.",
+  DESARMADO: "Torre desarmada. O sensor continua lendo para você poder testar.",
+  ARMANDO: "Armando. Saia da frente da torre: em 5 segundos ela começa a mapear o ambiente.",
+  CALIBRANDO: "Mapeando o ambiente. Deixe a área livre até terminar.",
+  VIGIANDO: "Armada e parada, esperando o PIR perceber movimento.",
+  VARRENDO: "Armada. Varrendo e comparando com o mapa do ambiente.",
+  VERIFICANDO: "Achou algo diferente do mapa. Conferindo antes de dar o alarme.",
+  TRAVADO: "Alvo travado. Laser ligado e alarme tocando.",
+  ALERTA: "Alvo muito perto ou chegando rápido. Sirene ligada.",
+  MANUAL: "Modo manual. Você controla a mira e o laser."
 };
+var NOMES = { TRAVADO: "ALVO TRAVADO" };
+var CORES = { DESARMADO: "verde", ARMANDO: "ambar", CALIBRANDO: "ambar", VIGIANDO: "ambar", VARRENDO: "ambar",
+              VERIFICANDO: "ambar", TRAVADO: "vermelho", ALERTA: "vermelho", MANUAL: "azul" };
+var CLASSES = { pessoa: "Intruso", falso: "Objeto parado", movimento: "Movimento", indefinido: "Indefinido" };
+var DIAS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
-const CLASSES = { pessoa: "Pessoa", falso: "Falso alarme", movimento: "Movimento", indefinido: "Indefinido" };
-const DIAS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+function aviso(texto, erro) {
+  var a = $("aviso"); a.textContent = texto; a.className = "visivel" + (erro ? " erro" : "");
+  clearTimeout(aviso.t); aviso.t = setTimeout(function () { a.className = ""; }, 2800);
+}
+function api(url, corpo) {
+  var op = corpo ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo) } : {};
+  return fetch(url, op).then(function (r) {
+    return r.json().catch(function () { return {}; }).then(function (d) {
+      if (!r.ok) throw new Error(d.erro || "erro " + r.status);
+      return d;
+    });
+  });
+}
+function comando(cmd, valor, extra) {
+  var corpo = { cmd: cmd, valor: valor };
+  if (extra) for (var k in extra) corpo[k] = extra[k];
+  return api("/api/comando", corpo).catch(function (e) { aviso(e.message, true); });
+}
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  });
+}
+function duracao(s) { return s >= 60 ? Math.floor(s / 60) + " min " + (s % 60) + " s" : s + " s"; }
+function tempoLigado(s) {
+  if (s == null) return "--";
+  var h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60);
+  return h ? h + " h " + m + " min" : m + " min";
+}
 
-// ---------------- API ----------------
-function aviso(texto, ok = false) {
-  const a = $("aviso"); a.textContent = texto; a.className = "aviso visivel" + (ok ? " ok" : "");
-  clearTimeout(aviso.t); aviso.t = setTimeout(() => a.classList.remove("visivel"), 2600);
+// estado mostrado: separa verificação e alerta do "TRAVADO" do Arduino
+function estadoVisivel() {
+  if (!servidorOk || !S.conectado) return "DESCONECTADO";
+  if (S.estado === "TRAVADO") {
+    if (S.alvo && S.alvo.suspeito) return "VERIFICANDO";
+    if (S.nivel >= 2) return "ALERTA";
+  }
+  return S.estado;
 }
-async function api(url, opcoes = {}) {
-  const r = await fetch(url, { headers: { "Content-Type": "application/json" }, ...opcoes });
-  const dados = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(dados.erro || "erro " + r.status);
-  return dados;
-}
-function comando(cmd, valor, extra = {}) {
-  return api("/api/comando", { method: "POST", body: JSON.stringify({ cmd, valor, ...extra }) }).catch((e) => aviso(e.message));
-}
-function esc(s) { return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
-function duracao(s) { return s >= 60 ? `${Math.floor(s / 60)} min ${s % 60} s` : `${s} s`; }
-function uptime(s) { if (s == null) return ""; const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h ? `${h}h${String(m).padStart(2, "0")}` : `${m} min`; }
 
-// ---------------- Interface ----------------
 function render() {
-  const e = S.conectado ? S.estado : "DESCONECTADO";
-  const badge = $("badge");
-  badge.dataset.e = e;
-  badge.classList.toggle("alerta", S.nivel >= 2 && e === "TRAVADO");
-  badge.textContent = e === "TRAVADO" ? (S.alvo && S.alvo.suspeito ? "VERIFICANDO" : S.nivel >= 2 ? "ALERTA" : "ALVO TRAVADO") : e;
-  $("radar-card").classList.toggle("alerta", S.nivel >= 2 && e === "TRAVADO");
-  const c = $("conexao");
-  c.className = "pill" + (S.conectado ? " ok" : "") + (S.simulado ? " sim" : "");
-  c.lastElementChild.textContent = !S.conectado ? "Desconectado" : (S.simulado ? "Simulação" : "Arduino " + (S.porta || ""));
-  $("sistema").textContent = S.conectado ? `fw ${S.versao || "?"}${S.uptime != null ? " · ligado há " + uptime(S.uptime) : ""}${S.ram ? " · RAM " + S.ram + " B" : ""}` : "";
-  $("descricao").textContent = DESCRICOES[e] || "";
+  var e = estadoVisivel();
+  var alarme = e === "TRAVADO" || e === "ALERTA";
+  $("estado").textContent = NOMES[e] || e;
+  $("estado").className = CORES[e] || "";
+  $("card-radar").className = "card" + (alarme ? " alarme" : "");
+  $("descricao").textContent = TEXTOS[e] || "";
 
-  const b = $("btn-armar");
-  b.textContent = S.armado ? "DESARMAR TORRE" : "ARMAR TORRE";
-  b.className = "botao grande " + (S.armado ? "desarmar" : "armar");
-  b.disabled = !S.conectado;
-  $("btn-calibrar").disabled = !S.conectado || !["DESARMADO", "VIGIANDO", "VARRENDO"].includes(e);
-  const pontos = (S.fundo || []).filter((v) => v != null && v > 0).length;
-  $("mapa-status").innerHTML = S.fundo
-    ? `Mapa do ambiente: <b>${S.calibrado ? "ativo" : "salvo"}</b> · ${pontos} ângulos${S.fundo_ts ? " · " + S.fundo_ts.slice(5, 16).replace("T", " ") : ""}`
-    : "Mapa do ambiente: <b>ainda não feito</b> (é criado ao armar)";
+  var c = $("conexao");
+  c.className = servidorOk && S.conectado ? "ok" : "";
+  c.textContent = !servidorOk ? "Sem conexão com o Raspberry"
+    : !S.conectado ? "Arduino desconectado"
+    : (S.simulado ? "Simulação" : "Arduino conectado") + " · firmware " + (S.versao || "?");
+
+  // faixa de aviso: só o problema mais importante
+  var f = $("faixa"), msg = "", erro = false;
+  if (!servidorOk) { msg = "Sem conexão com o servidor do Raspberry. Tentando de novo..."; erro = true; }
+  else if (!S.conectado) { msg = "O Raspberry não está recebendo nada do Arduino. Confira o cabo USB."; erro = true; }
+  else if (S.versao && parseFloat(S.versao) < 4) msg = "O Arduino está com o firmware " + S.versao + ". Grave a versão 4.0 para a detecção funcionar direito.";
+  else if (S.sem_eco != null && S.sem_eco > 60) msg = S.sem_eco + "% das leituras do ultrassônico estão voltando sem eco. Confira os fios Trig (A1) e Echo (A2).";
+  else if (S.reinicios >= 2) msg = "O Arduino já reiniciou sozinho " + S.reinicios + " vezes. Costuma ser falta de energia quando o servo se mexe.";
+  f.hidden = !msg; f.textContent = msg; f.className = erro ? "erro" : "";
+
+  var ligado = servidorOk && S.conectado;
+  var b = $("btn-armar");
+  b.textContent = S.armado ? "DESARMAR" : "ARMAR";
+  b.className = "botao principal " + (S.armado ? "desarmar" : "armar");
+  b.disabled = !ligado;
+  $("btn-calibrar").disabled = !ligado || ["DESARMADO", "VIGIANDO", "VARRENDO"].indexOf(S.estado) < 0;
+  var manual = S.estado === "MANUAL";
+  $("btn-manual").disabled = !ligado;
+  $("btn-manual").className = "botao" + (manual ? " ativo" : "");
+  $("btn-manual").textContent = manual ? "Sair do manual" : "Modo manual";
+  $("manual").hidden = !manual;
+  $("radar").className = manual ? "mirando" : "";
+  $("btn-laser").className = "botao" + (S.laser ? " laser-on" : "");
+  $("btn-laser").textContent = S.laser ? "Desligar laser" : "Ligar laser";
+
+  var pontos = (S.fundo || []).filter(function (v) { return v != null && v > 0; }).length;
+  $("mapa-status").textContent = !S.fundo ? "Mapa do ambiente: ainda não feito (é criado ao armar)."
+    : "Mapa do ambiente: " + pontos + " ângulos" + (S.fundo_ts ? ", feito em " + S.fundo_ts.slice(8, 10) + "/" + S.fundo_ts.slice(5, 7) + " às " + S.fundo_ts.slice(11, 16) : "") + ".";
   $("sugestao").hidden = !S.sugestao;
   $("sugestao").textContent = S.sugestao || "";
 
-  const manual = e === "MANUAL";
-  $("m-auto").classList.toggle("ativo", !manual);
-  $("m-manual").classList.toggle("ativo", manual);
-  $("painel-manual").hidden = !manual;
-  $("radar").classList.toggle("mirando", manual);
-  const l = $("btn-laser");
-  l.classList.toggle("on", !!S.laser);
-  l.textContent = S.laser ? "LASER LIGADO" : "LASER DESLIGADO";
-
-  if (document.activeElement !== $("alcance")) { $("alcance").value = S.alcance; $("v-alcance").textContent = S.alcance + " cm"; }
-  if (document.activeElement !== $("margem") && S.margem) { $("margem").value = S.margem; $("v-margem").textContent = S.margem + " cm"; }
-  if (document.activeElement !== $("ang-min") && document.activeElement !== $("ang-max")) {
+  var foco = document.activeElement;
+  if (foco !== $("alcance")) { $("alcance").value = S.alcance; $("v-alcance").textContent = S.alcance + " cm"; }
+  if (foco !== $("margem")) { $("margem").value = S.margem; $("v-margem").textContent = S.margem + " cm"; }
+  if (foco !== $("ang-min") && foco !== $("ang-max")) {
     $("ang-min").value = S.ang_min; $("ang-max").value = S.ang_max;
-    $("v-varre").textContent = `${S.ang_min}° a ${S.ang_max}°`;
+    $("v-varre").textContent = S.ang_min + "° a " + S.ang_max + "°";
   }
   $("patrulha").checked = !!S.patrulha;
   $("som").checked = !!S.som;
   $("auto-recal").checked = !!S.auto_recal;
 
-  renderLeituras();
-  $("l-pir").textContent = S.pir ? "MOVIMENTO" : "parado";
-  $("c-pir").classList.toggle("pir-on", !!S.pir);
-  const h = S.hoje || {};
-  const total = Object.values(h).reduce((a, b) => a + b, 0);
-  $("hoje-resumo").textContent = total ? `hoje: ${h.pessoa || 0} pessoa(s), ${h.falso || 0} falso(s)` : "nenhum incidente hoje";
-  const inc = S.incidente;
+  $("g-versao").textContent = S.versao || "--";
+  $("g-porta").textContent = S.porta || "--";
+  $("g-uptime").textContent = tempoLigado(S.uptime);
+  $("g-eco").textContent = S.sem_eco == null ? "--" : S.sem_eco + "%";
+  $("g-eco").className = S.sem_eco > 60 ? "ruim" : "";
+  $("g-pir").textContent = S.pir_bruto == null ? "--" : (S.pir_bruto ? "movimento" : "parado");
+  $("g-reinicios").textContent = S.reinicios || 0;
+  $("g-reinicios").className = S.reinicios >= 2 ? "ruim" : "";
+  $("g-ram").textContent = S.ram ? S.ram + " bytes" : "--";
+
+  var h = S.hoje || {}, total = 0;
+  for (var k in h) total += h[k];
+  $("hoje").textContent = total ? "hoje: " + total : "nenhum hoje";
+  var inc = S.incidente;
   $("inc-atual").hidden = !inc;
-  if (inc) $("inc-atual").textContent = `Incidente em andamento há ${duracao(inc.segundos)}${inc.pir ? " · PIR confirmou" : ""}${inc.min_dist ? " · mais perto " + inc.min_dist + " cm" : ""}`;
-  if (S.agenda && !renderAgenda.feito) renderAgenda();
+  if (inc) $("inc-atual").textContent = "Incidente em andamento há " + duracao(inc.segundos) + (inc.min_dist ? ", mais perto a " + inc.min_dist + " cm" : "");
+  if (S.agenda && !agendaFeita) renderAgenda();
+  renderLeituras();
 }
 
 function renderLeituras() {
-  $("l-ang").textContent = S.angulo + "°";
-  $("l-faixa").textContent = `varre ${S.ang_min}° a ${S.ang_max}°`;
-  $("l-dist").textContent = S.dist > 0 ? S.dist + " cm" : "--";
-  const f = S.fundo ? S.fundo[S.angulo - (S.angulo % 2)] : null;
-  $("l-fundo").textContent = f > 0 ? `normal aqui: ${f} cm` : "";
-  $("l-alvo").textContent = S.alvo ? `${S.alvo.dist} cm` : "nenhum";
-  const v = S.alvo ? S.alvo.vel || 0 : 0;
-  $("l-vel").textContent = !S.alvo ? "" : (S.alvo.confirmado ? "PIR confirmou, " : "") + (v < -10 ? `aproximando ${-v} cm/s` : v > 10 ? `afastando ${v} cm/s` : "parado");
-  $("c-alvo").classList.toggle("alerta", !!S.alvo);
+  var ligado = servidorOk && S.conectado;
+  $("l-ang").textContent = ligado ? S.angulo + "°" : "--";
+  $("l-faixa").textContent = "gira de " + S.ang_min + "° a " + S.ang_max + "°";
+  $("l-dist").textContent = ligado && S.dist > 0 ? S.dist + " cm" : (ligado ? "sem eco" : "--");
+  var f = S.fundo ? S.fundo[S.angulo - (S.angulo % 2)] : null;
+  $("l-fundo").textContent = f > 0 ? "no mapa: " + f + " cm" : "";
+  var a = S.alvo;
+  $("l-alvo").textContent = a ? a.dist + " cm" : "nenhum";
+  var v = a ? a.vel || 0 : 0;
+  $("l-vel").textContent = !a ? "" : a.suspeito ? "verificando" : v < -10 ? "chegando a " + (-v) + " cm/s" : v > 10 ? "saindo a " + v + " cm/s" : "parado em " + a.ang + "°";
+  $("c-alvo").className = "leitura" + (a ? (a.suspeito ? " aviso" : " alarme") : "");
+  var pir = S.pir || (S.estado === "DESARMADO" && S.pir_bruto);
+  $("l-pir").textContent = !ligado ? "--" : pir ? "movimento" : "parado";
+  $("l-pir2").textContent = ["VARRENDO", "TRAVADO", "CALIBRANDO"].indexOf(S.estado) >= 0 ? "não vale girando" : "";
+  $("c-pir").className = "leitura" + (pir && ligado ? " aviso" : "");
+  sujo = true;
 }
 
 function renderAgenda() {
-  const ag = S.agenda; renderAgenda.feito = true;
+  var ag = S.agenda; agendaFeita = true;
   $("ag-ativa").checked = ag.ativa; $("ag-armar").value = ag.armar; $("ag-desarmar").value = ag.desarmar;
-  $("ag-dias").innerHTML = DIAS.map((d, i) => `<button type="button" class="dia${ag.dias.includes(i) ? " on" : ""}" data-d="${i}" aria-pressed="${ag.dias.includes(i)}">${d}</button>`).join("");
-  $("ag-dias").querySelectorAll(".dia").forEach((b) => b.onclick = () => { b.classList.toggle("on"); b.setAttribute("aria-pressed", b.classList.contains("on")); });
+  $("ag-dias").innerHTML = DIAS.map(function (d, i) {
+    return '<button type="button" class="dia' + (ag.dias.indexOf(i) >= 0 ? " on" : "") + '" data-d="' + i + '">' + d + "</button>";
+  }).join("");
+  [].forEach.call($("ag-dias").children, function (b) { b.onclick = function () { b.classList.toggle("on"); }; });
 }
 
-function addEvento(ev, noTopo = true) {
-  const li = document.createElement("li");
-  li.innerHTML = `<time>${ev.ts.slice(11, 19)}</time><span class="tipo-${ev.tipo}">${esc(ev.detalhe)}</span>`;
-  const ul = $("eventos");
-  noTopo ? ul.prepend(li) : ul.append(li);
-  while (ul.children.length > 80) ul.lastChild.remove();
+function addEvento(ev, noTopo) {
+  var li = document.createElement("li");
+  li.innerHTML = "<time>" + ev.ts.slice(11, 19) + '</time><span class="ev-' + esc(ev.tipo) + '">' + esc(ev.detalhe) + "</span>";
+  var ul = $("eventos");
+  if (noTopo) ul.insertBefore(li, ul.firstChild); else ul.appendChild(li);
+  while (ul.children.length > 80) ul.removeChild(ul.lastChild);
 }
 
 function renderIncidentes() {
-  const ul = $("incidentes");
-  if (!incidentesCache.length) { ul.innerHTML = `<li class="vazio" style="cursor:default">Nenhum incidente ainda. Eles aparecem aqui quando a torre armada detecta algo.</li>`; return; }
-  ul.innerHTML = incidentesCache.map((i, k) => `<li data-k="${k}" title="Clique para ver o trajeto no radar">
-      <time>${i.inicio.slice(5, 10).split("-").reverse().join("/")}<br>${i.inicio.slice(11, 16)}</time>
-      <div><span class="chip c-${i.classe}">${CLASSES[i.classe] || i.classe}</span><div class="motivo">${esc(i.motivo)}</div></div>
-      <div class="num">${duracao(i.duracao)}${i.min_dist ? "<br>" + i.min_dist + " cm" : ""}${i.vel_max >= 15 ? "<br>" + i.vel_max + " cm/s" : ""}</div></li>`).join("");
-  ul.querySelectorAll("li[data-k]").forEach((li) => li.onclick = () => {
-    ul.querySelectorAll("li").forEach((x) => x.classList.remove("sel"));
-    li.classList.add("sel");
-    const inc = incidentesCache[+li.dataset.k];
-    trajetoSel = inc.trajeto && inc.trajeto.length ? { pts: inc.trajeto, ate: performance.now() + 12000 } : null;
-    if (!trajetoSel) aviso("Esse incidente não tem trajeto (nada entrou no alcance).");
+  var ul = $("incidentes");
+  if (!incidentes.length) { ul.innerHTML = '<li class="nota">Nenhum incidente ainda. Eles aparecem aqui quando a torre armada trava em alguma coisa.</li>'; return; }
+  ul.innerHTML = incidentes.map(function (i, k) {
+    return '<li class="item" data-k="' + k + '" title="Clique para ver o trajeto no radar">' +
+      "<time>" + i.inicio.slice(8, 10) + "/" + i.inicio.slice(5, 7) + "<br>" + i.inicio.slice(11, 16) + "</time>" +
+      '<div><span class="classe ' + esc(i.classe) + '">' + (CLASSES[i.classe] || esc(i.classe)) + '</span><div class="motivo">' + esc(i.motivo) + "</div></div>" +
+      '<div class="num">' + duracao(i.duracao) + (i.min_dist ? "<br>" + i.min_dist + " cm" : "") + "</div></li>";
+  }).join("");
+  [].forEach.call(ul.querySelectorAll("li.item"), function (li) {
+    li.onclick = function () {
+      [].forEach.call(ul.children, function (x) { x.classList.remove("sel"); });
+      li.classList.add("sel");
+      var inc = incidentes[+li.getAttribute("data-k")];
+      trajeto = inc.trajeto && inc.trajeto.length ? { pts: inc.trajeto, ate: Date.now() + 12000 } : null;
+      if (!trajeto) aviso("Esse incidente não tem trajeto: nada entrou no alcance.");
+      sujo = true;
+    };
   });
 }
 
-async function carregarIncidentes() {
-  incidentesCache = await api("/api/incidentes?limite=40").catch(() => []);
-  renderIncidentes();
+function carregarListas() {
+  api("/api/incidentes?limite=40").then(function (l) { incidentes = l; renderIncidentes(); }).catch(function () {});
+  api("/api/eventos?limite=60").then(function (evs) {
+    $("eventos").innerHTML = "";
+    evs.forEach(function (e) { addEvento(e, false); });
+  }).catch(function () {});
+  carregarStats();
+}
+function carregarStats() {
+  api("/api/estatisticas?dias=7").then(function (st) {
+    $("taxa").textContent = st.total ? st.total + " no total" : "";
+    $("dias7").innerHTML = st.por_dia.map(function (d) {
+      var n = d.pessoa + d.falso + d.outros;
+      return "<span><b>" + n + "</b>" + DIAS[(new Date(d.dia + "T12:00").getDay() + 6) % 7] + "</span>";
+    }).join("");
+  }).catch(function () {});
 }
 
-async function carregarStats() {
-  const st = await api("/api/estatisticas?dias=7").catch(() => null);
-  if (!st) return;
-  $("taxa").textContent = st.total ? `${st.taxa_falsos}% falsos alarmes` : "";
-  const soma = (k) => st.por_dia.reduce((a, d) => a + d[k], 0);
-  $("resumo-stats").innerHTML = `<span><b>${soma("pessoa")}</b> pessoas</span><span><b>${soma("falso")}</b> falsos</span><span><b>${soma("outros")}</b> outros</span>`;
-  const max = Math.max(1, ...st.por_dia.map((d) => d.pessoa + d.falso + d.outros));
-  $("barras").innerHTML = st.por_dia.map((d) => `<div class="barra" title="${d.dia}: ${d.pessoa} pessoa(s), ${d.falso} falso(s), ${d.outros} outro(s)">
-      <i style="height:${d.pessoa / max * 100}%;background:#ff6b6b"></i><i style="height:${d.falso / max * 100}%;background:#56645c"></i><i style="height:${d.outros / max * 100}%;background:#c9952d"></i></div>`).join("");
-  $("barras-rot").innerHTML = st.por_dia.map((d) => `<span>${DIAS[(new Date(d.dia + "T12:00").getDay() + 6) % 7]}</span>`).join("");
-  const mh = Math.max(1, ...st.por_hora);
-  $("horas").innerHTML = st.por_hora.map((n, h) => `<i style="height:${Math.max(4, n / mh * 100)}%;opacity:${n ? .9 : .18}" title="${h}h: ${n}"></i>`).join("");
-}
-
-async function carregarEventos() {
-  const evs = await api("/api/eventos?limite=60").catch(() => []);
-  $("eventos").innerHTML = "";
-  evs.forEach((e) => addEvento(e, false));
-  historico = await api("/api/deteccoes?horas=24").catch(() => []);
-}
-
-// ---------------- Tempo real (SSE) ----------------
-function conectarStream() {
-  const es = new EventSource("/api/stream");
-  es.onmessage = (m) => {
-    const ev = JSON.parse(m.data);
-    if (ev.t === "snapshot") {
-      const agora = performance.now();
-      ev.radar.forEach((r, i) => { radar[i] = r ? { dist: r[0], t: agora - r[1] * 1000 } : null; });
-      delete ev.radar; delete ev.t;
-      S = { ...S, ...ev };
-      renderAgenda.feito = false;
-      render();
-    } else if (ev.t === "r") {
-      radar[ev.ang] = { dist: ev.dist, t: performance.now() };
+// tempo real
+function aplicar(ev) { for (var k in ev) if (k !== "t") S[k] = ev[k]; }
+function conectar() {
+  var es = new EventSource("/api/stream");
+  es.onopen = function () { servidorOk = true; render(); };
+  es.onerror = function () {
+    if (servidorOk) { servidorOk = false; render(); }
+    if (es.readyState === 2) { es.close(); setTimeout(conectar, 3000); }   // o navegador desistiu: tenta de novo
+  };
+  es.onmessage = function (m) {
+    var ev = JSON.parse(m.data);
+    if (ev.t === "r") {
+      radar[ev.ang] = { dist: ev.dist, t: Date.now() };
       S.angulo = ev.ang; S.dist = ev.dist;
-      renderLeituras();
+      sujo = true;
+    } else if (ev.t === "snapshot") {
+      var agora = Date.now();
+      ev.radar.forEach(function (r, i) { radar[i] = r ? { dist: r[0], t: agora - r[1] * 1000 } : null; });
+      delete ev.radar;
+      aplicar(ev);
+      servidorOk = true; agendaFeita = false;
+      render();
     } else if (ev.t === "estado") {
-      delete ev.t;
-      if (ev.agenda) renderAgenda.feito = false;
-      S = { ...S, ...ev }; render();
+      if (ev.agenda) agendaFeita = false;
+      aplicar(ev);
+      render();
     } else if (ev.t === "evento") {
-      addEvento(ev);
-      if (ev.tipo === "alvo") historico.push({ ts: ev.ts, ang: ev.ang, dist: ev.dist });
+      addEvento(ev, true);
     } else if (ev.t === "incidente") {
-      if (!ev.aberto) {
-        if (ev.incidente) { incidentesCache.unshift(ev.incidente); renderIncidentes(); }
+      if (ev.aberto) S.incidente = { segundos: 0 };
+      else {
         S.incidente = null;
-        const k = ev.incidente ? ev.incidente.classe : null;
-        if (k) { S.hoje = S.hoje || {}; S.hoje[k] = (S.hoje[k] || 0) + 1; }
+        if (ev.incidente) {
+          incidentes.unshift(ev.incidente); renderIncidentes();
+          S.hoje = S.hoje || {}; S.hoje[ev.incidente.classe] = (S.hoje[ev.incidente.classe] || 0) + 1;
+        }
         carregarStats();
       }
       render();
     }
   };
-  es.onerror = () => { S.conectado = false; render(); };
 }
+setInterval(function () {
+  if (S.incidente) { S.incidente.segundos++; render(); }
+}, 1000);
+// leituras de texto no máximo 5 vezes por segundo
+setInterval(function () { if (sujo) renderLeituras(); }, 200);
 
-// atualiza o contador do incidente em andamento
-setInterval(() => { if (S.incidente) { S.incidente.segundos++; render(); } }, 1000);
-
-// ---------------- Radar (canvas) ----------------
-const cv = $("radar"), ctx = cv.getContext("2d");
-let geo = { cx: 0, cy: 0, R: 1, escala: 200 };
+// radar
+var cv = $("radar"), ctx = cv.getContext("2d");
+var geo = { w: 0, h: 0, cx: 0, cy: 0, R: 1, escala: 200 };
 
 function ajustarCanvas() {
-  const dpr = window.devicePixelRatio || 1;
-  cv.width = Math.round(cv.clientWidth * dpr); cv.height = Math.round(cv.clientHeight * dpr);
+  var caixa = cv.parentNode.getBoundingClientRect();
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  geo.w = caixa.width; geo.h = caixa.height;
+  cv.width = Math.round(geo.w * dpr); cv.height = Math.round(geo.h * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  desenhar();
 }
 window.addEventListener("resize", ajustarCanvas);
 
 function rad(ang) { return (inverter ? 180 - ang : ang) * Math.PI / 180; }
 function ponto(ang, dist) {
-  const r = Math.min(dist, geo.escala) / geo.escala * geo.R;
+  var r = Math.min(dist, geo.escala) / geo.escala * geo.R;
   return [geo.cx + Math.cos(rad(ang)) * r, geo.cy - Math.sin(rad(ang)) * r];
 }
-function setor(a0, a1, r) {
-  ctx.beginPath(); ctx.moveTo(geo.cx, geo.cy);
-  const x0 = rad(a0), x1 = rad(a1);
+function arco(a0, a1, r) {
+  var x0 = rad(a0), x1 = rad(a1);
   ctx.arc(geo.cx, geo.cy, r, -Math.max(x0, x1), -Math.min(x0, x1));
-  ctx.closePath();
 }
 
 function desenhar() {
-  const w = cv.clientWidth, h = cv.clientHeight;
-  if (cv.width !== Math.round(w * (window.devicePixelRatio || 1))) ajustarCanvas();
+  var w = geo.w, h = geo.h;
+  if (w < 10) return;
+  var agora = Date.now();
   ctx.clearRect(0, 0, w, h);
-  geo.cx = w / 2; geo.cy = h - 22; geo.R = Math.min(w / 2 - 34, h - 56);
-  geo.escala = Math.min(400, Math.max(100, Math.ceil((S.alcance * 2) / 50) * 50));
-  const { cx, cy, R } = geo;
-  const agora = performance.now();
+  geo.cx = w / 2; geo.cy = h - 20; geo.R = Math.max(10, Math.min(w / 2 - 30, h - 44));
+  geo.escala = Math.min(400, Math.max(100, Math.ceil(S.alcance * 1.6 / 50) * 50));
+  var cx = geo.cx, cy = geo.cy, R = geo.R;
+  var ligado = servidorOk && S.conectado;
 
-  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
-  g.addColorStop(0, "#0f2219"); g.addColorStop(1, "#0a120e");
-  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R, Math.PI, 0); ctx.closePath(); ctx.fill();
-
-  // fora da área de varredura
-  ctx.fillStyle = "rgba(0,0,0,0.45)";
-  if (S.ang_min > 0) { setor(0, S.ang_min, R); ctx.fill(); }
-  if (S.ang_max < 180) { setor(S.ang_max, 180, R); ctx.fill(); }
-
-  // zona de travamento
-  const rz = Math.min(S.alcance, geo.escala) / geo.escala * R;
-  setor(S.ang_min, S.ang_max, rz);
-  ctx.fillStyle = S.armado ? "rgba(255,75,75,0.07)" : "rgba(245,176,65,0.05)"; ctx.fill();
-  ctx.strokeStyle = S.armado ? "rgba(255,75,75,0.55)" : "rgba(245,176,65,0.45)";
-  ctx.setLineDash([5, 5]); ctx.beginPath();
-  ctx.arc(cx, cy, rz, -Math.max(rad(S.ang_min), rad(S.ang_max)), -Math.min(rad(S.ang_min), rad(S.ang_max))); ctx.stroke(); ctx.setLineDash([]);
-
-  // anéis e raios
-  ctx.strokeStyle = "rgba(61,220,132,0.18)"; ctx.lineWidth = 1;
-  ctx.fillStyle = "rgba(125,145,134,0.9)"; ctx.font = "11px ui-monospace, Consolas, monospace"; ctx.textAlign = "center";
-  for (let i = 1; i <= 4; i++) { ctx.beginPath(); ctx.arc(cx, cy, R * i / 4, Math.PI, 0); ctx.stroke(); }
-  for (let a = 0; a <= 180; a += 30) {
-    const [x, y] = ponto(a, geo.escala);
-    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(x, y); ctx.stroke();
-    ctx.fillText(a + "°", cx + Math.cos(rad(a)) * (R + 18), Math.min(cy - Math.sin(rad(a)) * (R + 14) + 4, cy + 4));
+  // grade
+  ctx.lineWidth = 1; ctx.strokeStyle = "#2a3136"; ctx.fillStyle = "#8b979e";
+  ctx.font = "11px ui-monospace, DejaVu Sans Mono, monospace"; ctx.textAlign = "center";
+  for (var i = 1; i <= 4; i++) { ctx.beginPath(); ctx.arc(cx, cy, R * i / 4, Math.PI, 0); ctx.stroke(); }
+  for (var a = 0; a <= 180; a += 30) {
+    var p = ponto(a, geo.escala);
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(p[0], p[1]); ctx.stroke();
+    ctx.fillText(a + "°", cx + Math.cos(rad(a)) * (R + 16), Math.min(cy - Math.sin(rad(a)) * (R + 12) + 4, cy + 14));
   }
   ctx.textAlign = "left";
-  for (let i = 1; i <= 4; i++) ctx.fillText(Math.round(geo.escala * i / 4) + " cm", cx + 16, cy - R * i / 4 - 5);
-  ctx.textAlign = "center";
+  for (i = 1; i <= 4; i++) ctx.fillText(Math.round(geo.escala * i / 4) + " cm", cx + 6, cy - R * i / 4 + 13);
 
-  // mapa do ambiente (fundo calibrado)
-  if (verMapa && S.fundo) {
-    ctx.strokeStyle = "rgba(90,169,255,0.7)"; ctx.lineWidth = 1.6; ctx.setLineDash([3, 4]);
-    ctx.beginPath(); let ult = null;
-    for (let a = 0; a <= 180; a++) {
-      const f = S.fundo[a];
-      if (f == null) continue;                 // ângulo não medido
-      if (f <= 0) { ult = null; continue; }    // sem eco: quebra a linha
-      const [x, y] = ponto(a, f);
-      (ult !== null && a - ult <= 4) ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  // área vigiada: até o alcance, dentro do giro
+  var rz = Math.min(S.alcance, geo.escala) / geo.escala * R;
+  ctx.beginPath(); ctx.moveTo(cx, cy); arco(S.ang_min, S.ang_max, rz); ctx.closePath();
+  ctx.fillStyle = S.armado ? "rgba(229,72,77,0.08)" : "rgba(232,168,56,0.06)"; ctx.fill();
+  ctx.strokeStyle = S.armado ? "rgba(229,72,77,0.7)" : "rgba(232,168,56,0.6)";
+  ctx.beginPath(); arco(S.ang_min, S.ang_max, rz); ctx.stroke();
+
+  // mapa do ambiente
+  if (S.fundo) {
+    ctx.strokeStyle = "#6aa9e9"; ctx.lineWidth = 1.5; ctx.beginPath();
+    var ult = null;
+    for (a = 0; a <= 180; a++) {
+      var f = S.fundo[a];
+      if (f == null) continue;
+      if (f <= 0) { ult = null; continue; }
+      p = ponto(a, f);
+      if (ult !== null && a - ult <= 4) ctx.lineTo(p[0], p[1]); else ctx.moveTo(p[0], p[1]);
       ult = a;
     }
-    ctx.stroke(); ctx.setLineDash([]);
-  }
-
-  // histórico de detecções (24 h)
-  ctx.strokeStyle = "rgba(255,138,61,0.45)"; ctx.lineWidth = 1.5;
-  historico.forEach((d) => {
-    const [x, y] = ponto(d.ang, d.dist);
-    ctx.beginPath(); ctx.moveTo(x - 4, y - 4); ctx.lineTo(x + 4, y + 4); ctx.moveTo(x + 4, y - 4); ctx.lineTo(x - 4, y + 4); ctx.stroke();
-  });
-
-  // trajeto do incidente selecionado
-  if (trajetoSel && agora < trajetoSel.ate) {
-    ctx.strokeStyle = "rgba(255,200,90,0.9)"; ctx.lineWidth = 2; ctx.beginPath();
-    trajetoSel.pts.forEach(([a, d], i) => { const [x, y] = ponto(a, d); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
     ctx.stroke();
-    const [ua, ud] = trajetoSel.pts[trajetoSel.pts.length - 1];
-    const [ux, uy] = ponto(ua, ud);
-    ctx.fillStyle = "#ffc85a"; ctx.beginPath(); ctx.arc(ux, uy, 4.5, 0, Math.PI * 2); ctx.fill();
   }
 
-  // leituras
-  for (let a = 0; a <= 180; a++) {
-    const r = radar[a];
-    if (!r || r.dist <= 0) continue;
-    const idade = (agora - r.t) / 1000;
-    if (idade > 8) continue;
-    const alfa = Math.max(0, 1 - idade / 8);
-    const f = S.fundo ? S.fundo[a - (a % 2)] : null;
-    const intruso = r.dist <= S.alcance && !(f > 0 && r.dist >= f - Math.max(15, f / 8));
-    const [x, y] = ponto(a, r.dist);
-    ctx.fillStyle = intruso ? `rgba(255,75,75,${alfa})` : `rgba(61,220,132,${alfa * 0.85})`;
-    ctx.beginPath(); ctx.arc(x, y, intruso ? 4 : 2.6, 0, Math.PI * 2); ctx.fill();
+  // trajeto do incidente clicado
+  if (trajeto && agora < trajeto.ate) {
+    ctx.strokeStyle = "#e8a838"; ctx.lineWidth = 2; ctx.beginPath();
+    trajeto.pts.forEach(function (q, k) { var z = ponto(q[0], q[1]); if (k) ctx.lineTo(z[0], z[1]); else ctx.moveTo(z[0], z[1]); });
+    ctx.stroke();
   }
 
-  // feixe
-  const [fx, fy] = ponto(S.angulo, geo.escala);
-  const lg = ctx.createLinearGradient(cx, cy, fx, fy);
-  lg.addColorStop(0, "rgba(61,220,132,0.9)"); lg.addColorStop(1, "rgba(61,220,132,0.05)");
-  ctx.strokeStyle = lg; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(fx, fy); ctx.stroke();
+  if (ligado) {
+    // leituras: vermelhas só as que são do alvo que a torre travou
+    var alvo = S.alvo, meia = alvo ? (alvo.larg || 10) / 2 + 6 : 0;
+    for (a = 0; a <= 180; a++) {
+      var r = radar[a];
+      if (!r || r.dist <= 0) continue;
+      var idade = (agora - r.t) / 1000;
+      if (idade > 10) continue;
+      var doAlvo = alvo && Math.abs(a - alvo.ang) <= meia && Math.abs(r.dist - alvo.dist) <= 35 && idade < 3;
+      p = ponto(a, r.dist);
+      ctx.globalAlpha = Math.max(0.15, 1 - idade / 10);
+      ctx.fillStyle = doAlvo ? (alvo.suspeito ? "#e8a838" : "#e5484d") : "#4cc38a";
+      ctx.beginPath(); ctx.arc(p[0], p[1], doAlvo ? 4 : 2.5, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
 
-  // laser + alvo
-  const laserOn = S.estado === "TRAVADO" || (S.estado === "MANUAL" && S.laser);
-  if (laserOn) {
-    const d = S.alvo ? S.alvo.dist : (S.dist > 0 ? S.dist : geo.escala);
-    const [lx, ly] = ponto(S.angulo, d);
-    ctx.strokeStyle = "rgba(255,40,40,0.95)"; ctx.lineWidth = 2.5; ctx.shadowColor = "#ff2a2a"; ctx.shadowBlur = 12;
-    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(lx, ly); ctx.stroke(); ctx.shadowBlur = 0;
-  }
-  if (S.alvo) {
-    const [ax, ay] = ponto(S.alvo.ang, S.alvo.dist);
-    const p = (Math.sin(agora / (S.nivel >= 2 ? 70 : 140)) + 1) / 2;
-    ctx.strokeStyle = "#ff4b4b"; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(ax, ay, 10 + p * 8, 0, Math.PI * 2); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(ax - 18, ay); ctx.lineTo(ax - 8, ay); ctx.moveTo(ax + 8, ay); ctx.lineTo(ax + 18, ay);
-    ctx.moveTo(ax, ay - 18); ctx.lineTo(ax, ay - 8); ctx.moveTo(ax, ay + 8); ctx.lineTo(ax, ay + 18); ctx.stroke();
-    ctx.fillStyle = "#ffd6d6"; ctx.font = "bold 12px ui-monospace, Consolas, monospace";
-    const v = S.alvo.vel || 0;
-    ctx.fillText(S.alvo.dist + " cm", ax, ay - 24);
-  }
+    // para onde a torre está apontando
+    var laser = (S.estado === "TRAVADO" && !(alvo && alvo.suspeito)) || (S.estado === "MANUAL" && S.laser);
+    p = ponto(S.angulo, geo.escala);
+    ctx.strokeStyle = laser ? "#e5484d" : "#4cc38a"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(p[0], p[1]); ctx.stroke();
 
-  ctx.fillStyle = "#3ddc84"; ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2); ctx.fill();
-  requestAnimationFrame(desenhar);
+    if (alvo) {
+      p = ponto(alvo.ang, alvo.dist);
+      ctx.strokeStyle = alvo.suspeito ? "#e8a838" : "#e5484d"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(p[0], p[1], 13, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = "#e4e8ea"; ctx.font = "bold 12px ui-monospace, DejaVu Sans Mono, monospace"; ctx.textAlign = "center";
+      ctx.fillText(alvo.dist + " cm", p[0], p[1] - 20);
+    }
+  } else {
+    ctx.fillStyle = "#8b979e"; ctx.font = "14px system-ui, sans-serif"; ctx.textAlign = "center";
+    ctx.fillText("sem dados da torre", cx, cy - R / 2);
+  }
+  ctx.fillStyle = "#e4e8ea"; ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fill();
 }
+// redesenha só quando chegou coisa nova, no máximo 20 vezes por segundo
+setInterval(function () {
+  if (document.hidden) return;
+  if (geo.w < 10) ajustarCanvas();
+  else if (sujo || (trajeto && Date.now() < trajeto.ate + 300)) { sujo = false; desenhar(); }
+}, 50);
+setInterval(function () { sujo = true; }, 1000);   // para as leituras antigas irem apagando
 
-// ---------------- Controles ----------------
-$("btn-armar").onclick = () => comando(S.armado ? "DESARMAR" : "ARMAR");
-$("btn-calibrar").onclick = () => comando("CALIBRAR").then(() => aviso("Mapeando: deixe a área livre por uns 10 s", true));
-$("m-auto").onclick = () => comando("MODO", "AUTO");
-$("m-manual").onclick = () => comando("MODO", "MANUAL");
-$("btn-laser").onclick = () => comando("LASER", S.laser ? 0 : 1);
+// controles
+$("btn-armar").onclick = function () { comando(S.armado ? "DESARMAR" : "ARMAR"); };
+$("btn-calibrar").onclick = function () { comando("CALIBRAR").then(function () { aviso("Mapeando. Deixe a área livre por uns 25 segundos."); }); };
+$("btn-manual").onclick = function () { comando("MODO", S.estado === "MANUAL" ? "AUTO" : "MANUAL"); };
+$("btn-laser").onclick = function () { comando("LASER", S.laser ? 0 : 1); };
 
-let tMira;
-$("mira").oninput = (e) => {
-  $("v-mira").textContent = e.target.value + "°";
-  clearTimeout(tMira); tMira = setTimeout(() => comando("MIRA", +e.target.value), 60);
-};
-$("alcance").oninput = (e) => { $("v-alcance").textContent = e.target.value + " cm"; S.alcance = +e.target.value; };
-$("alcance").onchange = (e) => comando("ALCANCE", +e.target.value);
-$("margem").oninput = (e) => { $("v-margem").textContent = e.target.value + " cm"; };
-$("margem").onchange = (e) => comando("MARGEM", +e.target.value);
-function varreInput() {
-  let mn = +$("ang-min").value, mx = +$("ang-max").value;
-  if (mx < mn + 10) { if (document.activeElement === $("ang-min")) mn = mx - 10; else mx = mn + 10; }
-  $("ang-min").value = mn; $("ang-max").value = mx;
-  $("v-varre").textContent = `${mn}° a ${mx}°`;
-  S.ang_min = mn; S.ang_max = mx;
-}
-$("ang-min").oninput = varreInput; $("ang-max").oninput = varreInput;
-$("ang-min").onchange = $("ang-max").onchange = () => comando("VARRE", null, { min: +$("ang-min").value, max: +$("ang-max").value });
-$("patrulha").onchange = (e) => comando("PATRULHA", e.target.checked ? 1 : 0);
-$("som").onchange = (e) => comando("SOM", e.target.checked ? 1 : 0);
-const pref = (chave) => (e) => api("/api/preferencias", { method: "POST", body: JSON.stringify({ [chave]: e.target.checked }) }).catch((x) => aviso(x.message));
-$("auto-recal").onchange = pref("auto_recal");
-$("ag-salvar").onclick = async () => {
-  const dias = [...$("ag-dias").querySelectorAll(".dia.on")].map((b) => +b.dataset.d);
-  try {
-    await api("/api/agenda", { method: "POST", body: JSON.stringify({ ativa: $("ag-ativa").checked, armar: $("ag-armar").value, desarmar: $("ag-desarmar").value, dias }) });
-    aviso("Agenda salva", true);
-  } catch (e) { aviso(e.message); }
-};
-$("inverter").onchange = (e) => { inverter = e.target.checked; try { localStorage.setItem("inverter", inverter ? "1" : "0"); } catch (x) {} };
-$("ver-mapa").onchange = (e) => { verMapa = e.target.checked; try { localStorage.setItem("verMapa", verMapa ? "1" : "0"); } catch (x) {} };
-
-cv.addEventListener("click", (e) => {
-  if (S.estado !== "MANUAL") return;
-  const rect = cv.getBoundingClientRect();
-  const x = e.clientX - rect.left - geo.cx, y = geo.cy - (e.clientY - rect.top);
-  let ang = Math.round(Math.atan2(Math.max(y, 0), x) * 180 / Math.PI);
-  if (inverter) ang = 180 - ang;
-  ang = Math.max(0, Math.min(180, ang));
+var tMira;
+function mirar(ang) {
   $("mira").value = ang; $("v-mira").textContent = ang + "°";
-  comando("MIRA", ang);
+  clearTimeout(tMira); tMira = setTimeout(function () { comando("MIRA", ang); }, 80);
+}
+$("mira").oninput = function () { mirar(+this.value); };
+cv.addEventListener("click", function (e) {
+  if (S.estado !== "MANUAL") return;
+  var rect = cv.getBoundingClientRect();
+  var x = e.clientX - rect.left - geo.cx, y = geo.cy - (e.clientY - rect.top);
+  var ang = Math.round(Math.atan2(Math.max(y, 0), x) * 180 / Math.PI);
+  if (inverter) ang = 180 - ang;
+  mirar(Math.max(0, Math.min(180, ang)));
 });
 
+$("alcance").oninput = function () { $("v-alcance").textContent = this.value + " cm"; S.alcance = +this.value; sujo = true; };
+$("alcance").onchange = function () { comando("ALCANCE", +this.value); };
+$("margem").oninput = function () { $("v-margem").textContent = this.value + " cm"; };
+$("margem").onchange = function () { comando("MARGEM", +this.value); };
+function varreInput() {
+  var mn = +$("ang-min").value, mx = +$("ang-max").value;
+  if (mx < mn + 10) { if (this === $("ang-min")) mn = mx - 10; else mx = mn + 10; }
+  $("ang-min").value = mn; $("ang-max").value = mx;
+  $("v-varre").textContent = mn + "° a " + mx + "°";
+  S.ang_min = mn; S.ang_max = mx; sujo = true;
+}
+$("ang-min").oninput = varreInput; $("ang-max").oninput = varreInput;
+$("ang-min").onchange = $("ang-max").onchange = function () { comando("VARRE", null, { min: +$("ang-min").value, max: +$("ang-max").value }); };
+$("patrulha").onchange = function () { comando("PATRULHA", this.checked ? 1 : 0); };
+$("som").onchange = function () { comando("SOM", this.checked ? 1 : 0); };
+$("auto-recal").onchange = function () { api("/api/preferencias", { auto_recal: this.checked }).catch(function (e) { aviso(e.message, true); }); };
+$("ag-salvar").onclick = function () {
+  var dias = [].map.call($("ag-dias").querySelectorAll(".dia.on"), function (b) { return +b.getAttribute("data-d"); });
+  api("/api/agenda", { ativa: $("ag-ativa").checked, armar: $("ag-armar").value, desarmar: $("ag-desarmar").value, dias: dias })
+    .then(function () { aviso("Agenda salva"); }).catch(function (e) { aviso(e.message, true); });
+};
+$("inverter").onchange = function () {
+  inverter = this.checked; sujo = true;
+  try { localStorage.setItem("inverter", inverter ? "1" : "0"); } catch (x) {}
+};
+
 ajustarCanvas();
-requestAnimationFrame(desenhar);
-carregarEventos();
-carregarIncidentes();
-carregarStats();
-conectarStream();
+render();
+carregarListas();
+conectar();
 </script>
 </body>
 </html>

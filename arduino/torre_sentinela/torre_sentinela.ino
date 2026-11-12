@@ -2,8 +2,9 @@
   Torre Sentinela - Arduino UNO
 
   O PIR e o ultrassonico ficam na parte que gira (servo). Ao armar, a torre
-  mapeia o ambiente e depois so trava no que estiver mais perto que o mapa e
-  que tenha se mexido. Tudo e enviado ao Raspberry Pi pela USB (115200).
+  mapeia o ambiente e depois varre procurando o que estiver mais perto que o
+  mapa. Quando acha, faz uma varredura curta em volta para confirmar e seguir
+  o alvo. Tudo e enviado ao Raspberry Pi pela USB (115200).
 
   Mensagens enviadas: OI, EST, R, SUSP, ALVO, TRK, CONF, NIVEL, PERDIDO,
   IGNORADO, MAPA, INSTAVEL, PIR, BASE, BASE_OK, CFG, PONG, MSG
@@ -12,7 +13,7 @@
 */
 
 #define RGB_ANODO_COMUM 0   // 1 se o LED RGB for de anodo comum
-const char VERSAO[] = "3.1";
+const char VERSAO[] = "4.0";
 
 #include <Servo.h>
 #include <LiquidCrystal.h>
@@ -35,7 +36,9 @@ const uint8_t PIN_LED_VERMELHO = A5;
 // Tempos
 const int PASSO = 2;                              // graus por passo de varredura
 const unsigned long T_PASSO          = 60;        // ms entre passos da varredura
-const unsigned long T_RASTREIO       = 80;        // ms entre leituras com alvo travado
+const unsigned long T_RASTREIO       = 45;        // ms entre leituras com alvo travado
+const unsigned long T_CONFIRMA       = 35;        // ms até repetir uma leitura suspeita
+const unsigned long T_REPOUSO        = 500;       // ms entre leituras com a torre desarmada
 const unsigned long T_MANUAL         = 120;
 const unsigned long T_LEITURA_SETOR  = 250;       // ms entre leituras parado num setor
 const unsigned long T_SETOR          = 9000;      // tempo parado em cada setor ao vigiar
@@ -43,12 +46,13 @@ const unsigned long T_PIR_ASSENTAR   = 4000;      // PIR só vale com a cabeça 
 const unsigned long T_SEM_MOVIMENTO  = 15000;     // varrendo sem nada -> volta a vigiar
 const unsigned long T_ARMANDO        = 5000;      // tempo para sair da área
 const unsigned long T_AQUECER_PIR    = 30000;
-const unsigned long T_TRK            = 250;
 const unsigned long T_SOLTAR_SERVO   = 700;       // em repouso o servo é solto (para de zumbir)
 const unsigned long T_SEM_SERVIDOR   = 20000;
-const unsigned long T_ABSORVER       = 15000;     // alvo que já se mexeu, parado sem PIR por 15 s -> mapa
-const unsigned long T_ABSORVER_SUSP  = 8000;      // algo novo que nunca se mexeu: 8 s parado -> mapa, sem alarme
-const uint8_t N_BUSCA = 7;
+const unsigned long T_ABSORVER       = 20000;     // alvo parado no mesmo lugar por 20 s -> confere com o PIR
+const unsigned long T_CHECAGEM       = 12000;     // tempo parado esperando o PIR antes de pôr no mapa
+const int JANELA       = 12;                      // graus para cada lado do alvo ao rastrear
+const int JANELA_BUSCA = 30;                      // janela maior quando o alvo some
+const uint8_t PASSADAS_CAL  = 5;                  // passadas da calibração
 const uint8_t PASSADAS_FIXO = 3;                  // igual por 3 passadas = faz parte do ambiente
 
 LiquidCrystal lcd(LCD_RS, LCD_E, LCD_D4, LCD_D5, LCD_D6, LCD_D7);
@@ -67,8 +71,8 @@ struct Config {
   uint8_t angMax;
   uint8_t margem;     // cm mínimos mais perto que o mapa para contar como alvo
 };
-const uint8_t CFG_MAGIC = 0x5C;
-Config cfg = {CFG_MAGIC, 100, 0, 1, 15, 165, 20};
+const uint8_t CFG_MAGIC = 0x5D;
+Config cfg = {CFG_MAGIC, 120, 1, 1, 15, 165, 20};
 
 void salvarCfg() { EEPROM.put(0, cfg); }
 void carregarCfg() {
@@ -95,15 +99,25 @@ bool armadoAntesManual = false;
 
 int  angulo = 90, direcao = 1, vMin = 15, vMax = 165;
 uint8_t reversoesJanela = 0, setorIdx = 1;
-int  candD = -1;                      // primeira leitura de um possível alvo (espera a confirmação)
-uint8_t candN = 0;                    // quantas leituras seguintes bateram com ela
+int  candD = -1;                      // leitura suspeita esperando a segunda para confirmar
 int  alvoAng = 0, alvoDist = 0;
 int8_t dirAlvo = 1;
 float velAlvo = 0;
-uint8_t falhas = 0, idxBusca = 0, nivel = 0;
+uint8_t nivel = 0;
 bool confirmado = false;              // PIR viu movimento no alvo
-bool suspeito = false;                // travou, mas ainda não provou que se mexe (sem alarme)
-int  angIni = 0, dIni = 0;
+bool suspeito = false;                // travou, mas ainda está verificando (sem alarme)
+
+// rastreio: varredura curta em volta do alvo, juntando as leituras em grupos
+int  jMin = 0, jMax = 0;              // janela da varredura curta
+uint8_t grupoN = 0, grupoFalha = 0;   // grupo de leituras seguidas que está sendo montado
+int  grupoAng = 0, grupoDist = 0;     // somas do grupo
+uint8_t melhorN = 0;                  // maior grupo da passada
+int  melhorAng = 0, melhorDist = 0;
+uint8_t passadasOk = 0, perdas = 0, alvoLarg = 0, desvios = 0;
+bool checando = false;                // parada no alvo esperando o PIR
+unsigned long tCheck = 0;
+uint8_t semAlvo = 0;
+unsigned int pings = 0, semEco = 0;   // para o diagnóstico
 int  miraManual = 90;
 bool laserManual = false;
 int  ultimaDist = -1;
@@ -111,13 +125,12 @@ bool pirAtivo = false;
 bool pirLimpo = false;   // PIR voltou a zero depois que a cabeça parou
 
 unsigned long tEstado = 0, tPasso = 0, tUltimoMovimento = 0, tBip = 0, tLcd = 0;
-unsigned long tAlvo = 0, tTrk = 0, tServoMov = 0, tNivelBaixo = 0, tContato = 0, tSetor = 0;
-int refDist = 0, refAng = 0, dVel = 0, dSalto = -1;
-uint8_t desvios = 0;
-unsigned long tEstavel = 0, tVel = 0, tTravou = 0, tInstavel = 0;
+unsigned long tAlvo = 0, tServoMov = 0, tNivelBaixo = 0, tContato = 0, tSetor = 0;
+int refDist = 0, refAng = 0;
+unsigned long tEstavel = 0, tInstavel = 0;
 int baldeInstavel = -1;
-unsigned int acertos = 0, erros = 0;   // leituras boas e perdidas durante o travamento
-bool contatoJaHouve = false, tomAlto = false;
+bool contatoJaHouve = false;
+uint8_t nSirene = 0;
 
 char msgL1[17] = "", msgL2[17] = "";
 unsigned long tMsgAte = 0;
@@ -197,13 +210,17 @@ void enviarLeitura(int ang, int d) {
 
 // Sensor
 int medirCm() {
+  // se o eco da leitura anterior ainda nao terminou, espera (senao a leitura sai errada)
+  unsigned long t0 = micros();
+  while (digitalRead(PIN_ECHO) == HIGH && micros() - t0 < 40000UL) {}
+  pings++;
   digitalWrite(PIN_TRIG, LOW);  delayMicroseconds(2);
   digitalWrite(PIN_TRIG, HIGH); delayMicroseconds(10);
   digitalWrite(PIN_TRIG, LOW);
   unsigned long t = pulseIn(PIN_ECHO, HIGH, 25000UL);  // até ~4 m
-  if (t == 0) return -1;
   int cm = t / 58;
-  return (cm < 3 || cm > 400) ? -1 : cm;
+  if (t == 0 || cm < 3 || cm > 400) { semEco++; return -1; }
+  return cm;
 }
 
 // mais perto que o mapa (olhando os vizinhos, o feixe e largo)
@@ -223,11 +240,11 @@ bool ehIntruso(int ang, int d, int alc) {
   return d < bc - margem;
 }
 
-// mesma leitura das ultimas passadas = coisa parada
+// mesma leitura das passadas anteriores = coisa parada que ja foi verificada
 bool ehEstatico(int ang, int d) {
   int i = balde(ang);
   uint8_t v = meio(d);
-  return v && ultima[i] && estat[i] >= 2 && abs((int)v - (int)ultima[i]) <= 3;
+  return v && ultima[i] && estat[i] >= 1 && abs((int)v - (int)ultima[i]) <= 3;
 }
 
 // o que fica igual por algumas passadas vira parte do mapa
@@ -324,11 +341,18 @@ void terminarCalibracao() {
   int validos = 0;
   for (int k = 0; k <= 90; k++) {
     if (estat[k] == 0) { fundo[k] = 0; ruido[k] = 0; }
-    else {
-      // leitura isolada muito abaixo das outras = eco falso
-      if (estat[k] >= 2 && ultima[k] != 255 && ultima[k] - fundo[k] > 7) fundo[k] = ultima[k];
-      ruido[k] = min(ruido[k] - fundo[k], 30);
+  }
+  // leitura isolada muito abaixo das outras e que os vizinhos nao viram = eco falso
+  uint8_t anterior = 0;
+  for (int k = 0; k <= 90; k++) {
+    uint8_t original = fundo[k];
+    if (estat[k] >= 2 && ultima[k] != 255 && ultima[k] - fundo[k] > 7) {
+      uint8_t prox = (k < 90 && estat[k + 1]) ? fundo[k + 1] : 0;
+      bool vizinhoViu = (anterior && abs((int)anterior - (int)original) <= 5) || (prox && abs((int)prox - (int)original) <= 5);
+      if (!vizinhoViu) fundo[k] = ultima[k];
     }
+    anterior = original;
+    if (estat[k]) ruido[k] = min(ruido[k] - fundo[k], 30);
     ultima[k] = fundo[k];
     estat[k] = 0;
   }
@@ -351,7 +375,7 @@ void terminarCalibracao() {
   else mudarEstado(VIGIANDO);
 }
 
-// calibracao: 3 passadas guardando a menor e a maior leitura de cada angulo
+// calibracao: algumas passadas guardando a menor e a maior leitura de cada angulo
 void passoCalibracao() {
   int d = medirCm();
   enviarLeitura(angulo, d);
@@ -369,7 +393,7 @@ void passoCalibracao() {
   }
   angulo += direcao * PASSO;
   if (angulo > cfg.angMax) {
-    if (calPasse >= 2) { terminarCalibracao(); return; }
+    if (calPasse >= PASSADAS_CAL - 1) { terminarCalibracao(); return; }
     angulo = cfg.angMax; direcao = -1; calPasse++;
   } else if (angulo < cfg.angMin) {
     angulo = cfg.angMin; direcao = 1; calPasse++;
@@ -380,7 +404,7 @@ void passoCalibracao() {
 int progressoCalibracao() {
   long faixa = max(1, cfg.angMax - cfg.angMin);
   long pos = (direcao > 0) ? angulo - cfg.angMin : cfg.angMax - angulo;
-  return constrain((calPasse * faixa + pos) * 100 / (3 * faixa), 0, 99);
+  return constrain((calPasse * faixa + pos) * 100 / (PASSADAS_CAL * faixa), 0, 99);
 }
 
 void armar() {
@@ -395,20 +419,25 @@ void desarmar() {
   mudarEstado(DESARMADO);
 }
 
+void janelaAlvo(int centro, int meia) {
+  jMin = max((int)cfg.angMin, centro - meia);
+  jMax = min((int)cfg.angMax, centro + meia);
+}
+
 void travar(int ang, int d) {
-  alvoAng = ang; alvoDist = d; falhas = 0; idxBusca = 0;
-  velAlvo = 0; tAlvo = millis(); dirAlvo = direcao;
+  alvoAng = ang; alvoDist = d; velAlvo = 0; tAlvo = millis(); dirAlvo = direcao;
   tUltimoMovimento = millis();
-  refDist = d; refAng = ang; tEstavel = millis(); desvios = 0;
-  dVel = d; tVel = millis(); dSalto = -1; tTravou = millis(); acertos = erros = 0;
-  confirmado = false;
-  suspeito = true; angIni = ang; dIni = d;
+  refDist = d; refAng = ang; tEstavel = millis();
+  confirmado = false; suspeito = true; checando = false;
+  passadasOk = 0; perdas = 0; alvoLarg = 1; melhorN = 0; desvios = 0;
+  grupoN = 1; grupoAng = ang; grupoDist = d; grupoFalha = 0;
+  janelaAlvo(ang, JANELA);
   mudarEstado(TRAVADO);
   laser(true);
   Serial.print(F("SUSP,")); Serial.print(ang); Serial.print(','); Serial.println(d);
 }
 
-// alvo se mexeu (ou o PIR viu): vira alarme
+// passou na verificacao: vira alarme
 void confirmarAlvo() {
   if (!suspeito) return;
   suspeito = false;
@@ -418,11 +447,16 @@ void confirmarAlvo() {
   tLcd = 0;
 }
 
-// travou e perdeu rapido duas vezes no mesmo lugar: reflexo, ignora ali
+// nao passou na verificacao: marca o lugar para nao parar ali de novo com a mesma leitura.
+// Se repetir no mesmo lugar, aumenta a tolerancia dali.
 void marcarInstavel() {
   int b = balde(alvoAng);
+  uint8_t v = meio(alvoDist);
+  for (int k = b - 3; k <= b + 3; k++) {
+    if (k < 0 || k > 90) continue;
+    ultima[k] = v; estat[k] = 1;
+  }
   if (baldeInstavel >= 0 && abs(b - baldeInstavel) <= 3 && millis() - tInstavel < 180000UL) {
-    uint8_t v = meio(alvoDist);
     for (int k = min(b, baldeInstavel) - 3; k <= max(b, baldeInstavel) + 3; k++) {
       if (k < 0 || k > 90 || !fundo[k] || fundo[k] <= v) continue;
       int precisa = fundo[k] - v + 3;
@@ -437,19 +471,20 @@ void marcarInstavel() {
 }
 
 void perdeuAlvo() {
-  bool piscando = (unsigned long)erros * 10 > (unsigned long)(acertos + erros) * 3;
-  if (!confirmado && (millis() - tTravou < 4000 || piscando)) marcarInstavel();
+  bool eraSuspeito = suspeito;
+  if (eraSuspeito) marcarInstavel();
   Serial.println(F("PERDIDO"));
   mudarEstado(VARRENDO);
   direcao = dirAlvo;
-  iniciarVarredura(alvoAng, true);
+  iniciarVarredura(alvoAng, !eraSuspeito);   // alvo de verdade: procura primeiro por perto
 }
 
-// objeto parado que nao se mexeu: entra no mapa
+// objeto parado que o PIR nao confirmou: entra no mapa
 void absorverAlvo() {
   uint8_t v = meio(alvoDist + 2);
   int i = balde(alvoAng);
-  for (int k = i - 4; k <= i + 4; k++) {
+  int meia = max(4, alvoLarg / 2 + 3);
+  for (int k = i - meia; k <= i + meia; k++) {
     if (k < 0 || k > 90) continue;
     if (fundo[k] == 0 || fundo[k] > v) fundo[k] = v;
     if (ruido[k] < 3) ruido[k] = 3;
@@ -467,18 +502,16 @@ void fimDeCurso() {
   if (reversoesJanela > 0 && --reversoesJanela == 0) { vMin = cfg.angMin; vMax = cfg.angMax; }
 }
 
-// precisa de 3 leituras parecidas para travar
+// leitura suspeita: repete na hora; se a segunda bater, trava para verificar
 bool avaliar(int ang, int d) {
-  bool candidato = ehIntruso(ang, d, cfg.alcance) && !ehEstatico(ang, d);
+  bool perto = ehIntruso(ang, d, cfg.alcance);
   if (candD > 0) {
-    if (candidato && abs(d - candD) <= 12) {
-      if (++candN >= 2) { candD = -1; candN = 0; travar(ang, d); return true; }
-      return false;
-    }
-    candD = -1; candN = 0;
+    int c = candD;
+    candD = -1;
+    if (perto && abs(d - c) <= 25) { travar(ang, (d + c) / 2); return true; }
     return false;
   }
-  if (candidato) { candD = d; candN = 0; }
+  if (perto && !ehEstatico(ang, d)) candD = d;
   return false;
 }
 
@@ -486,75 +519,112 @@ void passoVarredura() {
   int d = medirCm();
   ultimaDist = d;
   enviarLeitura(angulo, d);
+  bool repetida = candD > 0;
   if (avaliar(angulo, d)) return;
-  if (candD > 0) return;
-  aprender(angulo, d);
+  if (candD > 0) { tPasso = millis() - (T_PASSO - T_CONFIRMA); return; }
+  if (!repetida) aprender(angulo, d);
   angulo += direcao * PASSO;
   if (angulo >= vMax) { angulo = vMax; direcao = -1; fimDeCurso(); }
   else if (angulo <= vMin) { angulo = vMin; direcao = 1; fimDeCurso(); }
   moverServo(angulo);
 }
 
-int offsetBusca(uint8_t k) {
-  if (k == 0) return 0;
-  int mag = ((k + 1) / 2) * 4;
-  return ((k % 2 == 1) ? dirAlvo : -dirAlvo) * mag;
+// o buzzer so toca entre uma leitura e outra, para nao atrapalhar o ultrassonico
+void somAlarme() {
+  if (!cfg.som || suspeito) return;
+  unsigned long agora = millis();
+  if (nivel >= 2) {
+    nSirene++;
+    tone(PIN_BUZZER, (nSirene & 4) ? 2500 : 1700, T_RASTREIO - 12);
+  } else {
+    long intervalo = map(constrain(alvoDist, 5, cfg.alcance), 5, cfg.alcance, 90, 700);
+    if (agora - tBip >= (unsigned long)intervalo) { tBip = agora; tone(PIN_BUZZER, 2200, 30); }
+  }
+}
+
+void fecharGrupo() {
+  if (grupoN > melhorN) { melhorN = grupoN; melhorAng = grupoAng / grupoN; melhorDist = grupoDist / grupoN; }
+  grupoN = 0; grupoFalha = 0; grupoAng = 0; grupoDist = 0;
+}
+
+// fim de uma passada da varredura curta: o maior grupo de leituras e o alvo
+void fimDaPassada() {
+  unsigned long agora = millis();
+  uint8_t n = melhorN;
+  int a = melhorAng, d = melhorDist;
+  melhorN = 0;
+
+  if (n < 2) {                       // nao achou nada nesta passada
+    perdas++;
+    if (perdas >= (suspeito ? 2 : 3)) { perdeuAlvo(); return; }
+    janelaAlvo(alvoAng, JANELA_BUSCA);
+    return;
+  }
+  perdas = 0;
+  if (passadasOk && agora - tAlvo >= 200) {
+    float inst = constrain((d - alvoDist) * 1000.0 / (agora - tAlvo), -300.0, 300.0);
+    velAlvo = velAlvo * 0.5 + inst * 0.5;
+  }
+  if (abs(a - alvoAng) >= 4) dirAlvo = (a > alvoAng) ? 1 : -1;
+  alvoAng = a; alvoDist = d; alvoLarg = n; tAlvo = agora;
+  tUltimoMovimento = agora;
+  if (passadasOk < 250) passadasOk++;
+
+  // alarme: grupo largo (objeto de verdade) ou visto em duas passadas
+  if (suspeito && (n >= 4 || passadasOk >= 2)) confirmarAlvo();
+
+  if (abs(d - refDist) > 10 || abs(a - refAng) > 8) {      // saiu do lugar (duas passadas seguidas)
+    if (++desvios >= 2) { refDist = d; refAng = a; tEstavel = agora; desvios = 0; }
+  } else desvios = 0;
+  if (!suspeito && agora - tEstavel > T_ABSORVER) {
+    checando = true; tCheck = agora; semAlvo = 0;
+    angulo = alvoAng;
+    moverServo(angulo);
+  }
+  janelaAlvo(a, max(JANELA, n + 8));
+  Serial.print(F("TRK,")); Serial.print(alvoAng); Serial.print(',');
+  Serial.print(alvoDist); Serial.print(','); Serial.print((int)velAlvo);
+  Serial.print(','); Serial.println(n * PASSO);
+}
+
+// alvo parado ha muito tempo: a torre para nele e espera o PIR.
+// Se o PIR baixar e subir de novo, tem gente; senao e objeto e entra no mapa.
+void passoChecagem(bool perto) {
+  if (perto) semAlvo = 0;
+  else if (++semAlvo >= 6) { checando = false; tEstavel = millis(); return; }
+  if (pirLimpo && digitalRead(PIN_PIR) == HIGH && millis() - tServoMov >= 2500) {
+    checando = false; tEstavel = millis();
+    if (!confirmado) {
+      confirmado = true;
+      Serial.println(F("CONF"));
+      tLcd = 0;
+    }
+    return;
+  }
+  if (millis() - tCheck > T_CHECAGEM) absorverAlvo();
 }
 
 void passoRastreio() {
   int d = medirCm();
   ultimaDist = d;
   enviarLeitura(angulo, d);
-  // pulo grande so vale se a proxima leitura confirmar
-  bool salto = false;
-  if (d > 0 && abs(d - alvoDist) > 30) {
-    if (dSalto > 0 && abs(d - dSalto) <= 12) dSalto = -1;
-    else { dSalto = d; salto = true; }
-  } else dSalto = -1;
-  if (ehIntruso(angulo, d, cfg.alcance + 15) && !salto) {
-    unsigned long agora = millis();
-    if (agora - tVel >= 500) {
-      float inst = constrain((d - dVel) * 1000.0 / (agora - tVel), -300.0, 300.0);
-      velAlvo = velAlvo * 0.5 + inst * 0.5;
-      dVel = d; tVel = agora;
-    }
-    if (angulo != alvoAng) dirAlvo = (angulo > alvoAng) ? 1 : -1;
-    alvoAng = angulo; alvoDist = d; tAlvo = agora;
-    falhas = 0; idxBusca = 0;
-    if (acertos < 60000) acertos++;
-    tUltimoMovimento = agora;
-    if (suspeito && (abs(d - dIni) >= 20 || abs(angulo - angIni) >= 14 || abs(velAlvo) >= 20)) confirmarAlvo();
-    if (abs(d - refDist) > 8 || abs(angulo - refAng) > 6) {
-      if (++desvios >= 3) { refDist = d; refAng = angulo; tEstavel = agora; desvios = 0; }
-    } else if (agora - tEstavel > (suspeito ? T_ABSORVER_SUSP : T_ABSORVER) && !confirmado && !pirAtivo
-               && agora - tServoMov > T_PIR_ASSENTAR + 2000
-              ) {
-      absorverAlvo();
-      return;
-    }
-    if (agora - tTrk >= T_TRK) {
-      tTrk = agora;
-      Serial.print(F("TRK,")); Serial.print(alvoAng); Serial.print(',');
-      Serial.print(alvoDist); Serial.print(','); Serial.println((int)velAlvo);
-    }
-    return;
-  }
-  if (erros < 60000) erros++;
-  if (++falhas < 2) return;
-  idxBusca++;
-  if (idxBusca >= N_BUSCA) { perdeuAlvo(); return; }
-  angulo = constrain(alvoAng + offsetBusca(idxBusca), cfg.angMin, cfg.angMax);
-  moverServo(angulo);
-}
+  somAlarme();
+  bool perto = ehIntruso(angulo, d, cfg.alcance + 15);
+  if (checando) { passoChecagem(perto); return; }
 
-void somAlarme(unsigned long agora) {
-  if (!cfg.som) return;
-  if (nivel >= 2) {
-    if (agora - tBip >= 180) { tBip = agora; tomAlto = !tomAlto; tone(PIN_BUZZER, tomAlto ? 2500 : 1700, 170); }
-  } else {
-    long intervalo = map(constrain(alvoDist, 5, cfg.alcance), 5, cfg.alcance, 90, 700);
-    if (agora - tBip >= (unsigned long)intervalo) { tBip = agora; tone(PIN_BUZZER, 2200, 40); }
+  if (perto) { grupoN++; grupoAng += angulo; grupoDist += d; grupoFalha = 0; }
+  else if (grupoN && ++grupoFalha >= 2) fecharGrupo();
+
+  angulo += direcao * PASSO;
+  if (angulo > jMax || angulo < jMin) {
+    direcao = (angulo > jMax) ? -1 : 1;
+    angulo = constrain(angulo, jMin, jMax);
+    fecharGrupo();
+    fimDaPassada();
+    if (estado != TRAVADO || checando) return;
+    angulo = constrain(angulo, jMin, jMax);
   }
+  moverServo(angulo);
 }
 
 int anguloSetor(uint8_t k) {   // 3 setores: 1/6, 3/6 e 5/6 da área de varredura
@@ -583,7 +653,12 @@ void vigiar(unsigned long agora) {
 void atualizarMaquina() {
   unsigned long agora = millis();
   switch (estado) {
-    case DESARMADO:
+    case DESARMADO:      // continua lendo para dar para testar o sensor pelo painel
+      if (agora - tPasso >= T_REPOUSO) {
+        tPasso = agora;
+        ultimaDist = medirCm();
+        enviarLeitura(angulo, ultimaDist);
+      }
       break;
 
     case ARMANDO:
@@ -607,16 +682,8 @@ void atualizarMaquina() {
       break;
 
     case TRAVADO:
-      if (pirAtivo && !confirmado) {
-        confirmado = true;
-        Serial.println(F("CONF"));
-        confirmarAlvo();
-        tLcd = 0;
-      }
       if (agora - tPasso >= T_RASTREIO) { tPasso = agora; passoRastreio(); }
-      if (estado != TRAVADO || suspeito) break;
-      atualizarNivel();
-      somAlarme(agora);
+      if (estado == TRAVADO && !suspeito) atualizarNivel();
       break;
 
     case MANUAL:
@@ -671,7 +738,10 @@ void processarComando(char* linha) {
   if (!strcmp(linha, "PING")) {
     Serial.print(F("PONG,")); Serial.print(millis() / 1000);
     Serial.print(','); Serial.print(ramLivre());
-    Serial.print(','); Serial.println(calibrado ? 1 : 0);
+    Serial.print(','); Serial.print(calibrado ? 1 : 0);
+    Serial.print(','); Serial.print(pings ? (unsigned long)semEco * 100 / pings : 0);   // % de leituras sem eco
+    Serial.print(','); Serial.println(digitalRead(PIN_PIR) == HIGH ? 1 : 0);            // PIR sem filtro
+    pings = 0; semEco = 0;
   }
   else if (!strcmp(linha, "ARMAR")) armar();
   else if (!strcmp(linha, "DESARMAR")) desarmar();
@@ -769,10 +839,10 @@ void atualizarLcd() {
 
   switch (estado) {
     case DESARMADO:
-      strcpy(l1, "DESARMADO");
+      snprintf(l1, sizeof(l1), "DESARMADO   v%s", VERSAO);
       if (millis() < T_AQUECER_PIR) strcpy(l2, "Aquecendo PIR...");
       else if (contatoJaHouve && millis() - tContato > T_SEM_SERVIDOR) strcpy(l2, "Sem servidor");
-      else strcpy(l2, "Arme pelo painel");
+      else snprintf(l2, sizeof(l2), "%-7s PIR:%s", dist, digitalRead(PIN_PIR) == HIGH ? "sim" : "nao");
       break;
     case ARMANDO:
       snprintf(l1, sizeof(l1), "ARMANDO em %lus", (T_ARMANDO - (millis() - tEstado)) / 1000 + 1);
@@ -791,7 +861,7 @@ void atualizarLcd() {
       snprintf(l2, sizeof(l2), "Dist: %s", dist);
       break;
     case TRAVADO: {
-      strcpy(l1, suspeito ? "VERIFICANDO..." : (nivel >= 2 ? "!!! ALERTA !!!" : (confirmado ? "ALVO CONFIRMADO" : "ALVO TRAVADO")));
+      strcpy(l1, suspeito ? "VERIFICANDO..." : (nivel >= 2 ? "!!! ALERTA !!!" : (checando ? "CONFERINDO PIR" : "ALVO TRAVADO")));
       const char* v = velAlvo < -10 ? "<<" : (velAlvo > 10 ? ">>" : "--");
       snprintf(l2, sizeof(l2), "%3dcm %3d%c %s", alvoDist, alvoAng, (char)223, v);
       break;

@@ -29,7 +29,7 @@ FIM_INCIDENTE_S = 30          # incidente acaba após 30 s sem PIR e sem alvo
 SEM_RESPOSTA_S = 20           # sem resposta do Arduino por 20 s: reconecta
 FALSOS_PARA_AGIR = 3          # alarmes falsos no mesmo setor em 1 hora
 AGENDA_PADRAO = {"ativa": False, "armar": "23:00", "desarmar": "07:00", "dias": [0, 1, 2, 3, 4, 5, 6]}
-CLASSES = {"pessoa": "Pessoa", "falso": "Falso alarme", "movimento": "Movimento fora do alcance",
+CLASSES = {"pessoa": "Intruso", "falso": "Objeto parado", "movimento": "Movimento fora do alcance",
            "indefinido": "Indefinido"}
 
 
@@ -198,15 +198,15 @@ class Incidentes:
         span_d = max(ds) - min(ds)
         desvio = statistics.pstdev(ds) if len(ds) > 1 else 0
         movel = span_ang >= 14 or span_d >= 25 or inc["vel_max"] >= 20
-        if inc["pir"] and movel:
-            return "pessoa", f"PIR confirmou e o alvo se moveu ({span_ang}° e {span_d} cm)."
+        if movel:
+            return "pessoa", f"O alvo se moveu dentro do alcance ({span_ang}° e {span_d} cm)."
         if inc["pir"]:
-            return "pessoa", "PIR confirmou e havia um alvo parado dentro do alcance."
-        if inc.get("ignorado") and not inc["pir"]:
-            return "falso", "Objeto parado ou reflexo, sem o PIR confirmar: a torre o incorporou ao mapa."
-        if not movel and desvio < 6:
-            return "falso", "Só o ultrassônico viu, sempre no mesmo lugar: deve ser objeto fixo ou eco."
-        return "indefinido", "Alvo em movimento, mas sem confirmação do PIR."
+            return "pessoa", "Alvo parado, mas o PIR confirmou movimento."
+        if inc.get("ignorado"):
+            return "falso", "Apareceu algo novo que ficou parado e o PIR não confirmou: entrou no mapa."
+        if len(ds) < 4 and desvio < 6:
+            return "indefinido", "Alvo visto por pouco tempo, sempre no mesmo lugar."
+        return "indefinido", "Alvo parado dentro do alcance, sem confirmação do PIR."
 
     def fechar(self, motivo_fim=None):
         with self.lock:
@@ -275,6 +275,7 @@ class Torre:
         self.ser = None
         self.ultimo_rx = time.time()
         self.diag = collections.deque(maxlen=40000)   # ultimas mensagens da serial
+        self.t_porta = 0                              # quando a porta serial foi aberta
         self.inscritos = []
         self.radar = [None] * 181          # (dist, timestamp) por ângulo
         self.fundo_novo = {}
@@ -282,11 +283,12 @@ class Torre:
         self.s = {
             "conectado": False, "versao": None, "porta": None, "simulado": simular,
             "estado": "DESCONECTADO", "armado": False, "pir": False, "nivel": 0,
-            "alcance": cfg_get("alcance", 100), "patrulha": cfg_get("patrulha", False),
+            "alcance": cfg_get("alcance", 120), "patrulha": cfg_get("patrulha", True),
             "som": cfg_get("som", True), "ang_min": cfg_get("ang_min", 15), "ang_max": cfg_get("ang_max", 165),
             "laser": False, "angulo": 90, "dist": -1, "alvo": None,
             "calibrado": False, "fundo": fundo, "fundo_ts": cfg_get("fundo_ts", None),
             "uptime": None, "ram": None, "sugestao": None, "margem": cfg_get("margem", 20),
+            "sem_eco": None, "pir_bruto": None, "reinicios": 0,
         }
         self.incidentes = Incidentes(self)
 
@@ -383,8 +385,11 @@ class Torre:
 
             elif tipo == "TRK":
                 ang, dist, vel = int(partes[1]), int(partes[2]), int(partes[3])
-                susp = (self.s.get("alvo") or {}).get("suspeito", False)
-                self._atualizar(alvo={"ang": ang, "dist": dist, "vel": vel, "suspeito": susp})
+                larg = int(partes[4]) if len(partes) > 4 else 10
+                antes = self.s.get("alvo") or {}
+                susp = antes.get("suspeito", False)
+                self._atualizar(alvo={"ang": ang, "dist": dist, "vel": vel, "larg": larg, "suspeito": susp,
+                                      "confirmado": antes.get("confirmado", False)})
                 if not susp:
                     self.incidentes.rastreio(ang, dist, vel)
 
@@ -431,12 +436,12 @@ class Torre:
                 cfg_set("fundo", fundo)
                 self._atualizar(fundo=fundo, alvo=None)
                 self.incidentes.ignorado()
-                self.registrar("ignorado", f"Objeto parado a {dist} cm ({ang}°) sem PIR: incorporado ao mapa", ang, dist)
+                self.registrar("ignorado", f"Objeto parado a {dist} cm ({ang}°): entrou no mapa", ang, dist)
 
             elif tipo == "CONF":
                 alvo = self.s.get("alvo") or {}
                 self._atualizar(alvo={**alvo, "confirmado": True} if alvo else None)
-                self.registrar("confirmado", "PIR confirmou: o alvo travado é algo que se mexe",
+                self.registrar("confirmado", "PIR confirmou movimento no alvo",
                                alvo.get("ang"), alvo.get("dist"))
                 self.incidentes.confirmado(alvo.get("ang"), alvo.get("dist"))
 
@@ -451,8 +456,8 @@ class Torre:
             elif tipo == "INSTAVEL":
                 ang, dist = int(partes[1]), int(partes[2])
                 self.incidentes.ignorado()
-                self.registrar("instavel", f"Reflexo perto de {ang}° (eco que vai e volta): leituras curtas "
-                                           f"ali passam a ser ignoradas", ang, dist)
+                self.registrar("instavel", f"Eco falso perto de {ang}°: leituras parecidas ali passam a ser "
+                                           f"ignoradas", ang, dist)
 
             elif tipo == "PERDIDO":
                 self._atualizar(alvo=None)
@@ -491,12 +496,21 @@ class Torre:
                 campos = {"uptime": int(partes[1]), "ram": int(partes[2])}
                 if len(partes) > 3:
                     campos["calibrado"] = partes[3] == "1"
+                if len(partes) > 5:
+                    campos.update(sem_eco=int(partes[4]), pir_bruto=partes[5] == "1")
                 self._atualizar(**campos)
 
             elif tipo == "OI":
                 versao = partes[2] if len(partes) > 2 else "?"
-                self._atualizar(conectado=True, versao=versao, calibrado=False, nivel=0)
-                self.registrar("conexao", f"Arduino conectado (firmware {versao})")
+                # um OI fora da abertura da porta significa que o Arduino reiniciou sozinho
+                sozinho = self.s["conectado"] and time.time() - self.t_porta > 8
+                self._atualizar(conectado=True, versao=versao, calibrado=False, nivel=0, alvo=None,
+                                reinicios=self.s["reinicios"] + (1 if sozinho else 0))
+                if sozinho:
+                    self.registrar("aviso", "O Arduino reiniciou sozinho. Costuma ser falta de energia quando o "
+                                            "servo se mexe: use uma fonte melhor ou outra porta USB.")
+                else:
+                    self.registrar("conexao", f"Arduino conectado (firmware {versao})")
                 threading.Thread(target=self.sincronizar, daemon=True).start()
 
             elif tipo == "MSG":
@@ -542,7 +556,7 @@ class Torre:
                     continue
                 aviso = False
                 log(f"Porta aberta: {porta}")
-                self.ultimo_rx = time.time()
+                self.ultimo_rx = self.t_porta = time.time()
                 with self.serial_lock:
                     self.ser = ser
                 self._atualizar(porta=porta)

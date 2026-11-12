@@ -2,7 +2,7 @@
 
 Projeto de Laboratório de Desenvolvimento com Arduino e Raspberry Pi.
 
-A Torre Sentinela é um radar de segurança feito com o Master Kit da RoboCore. Um servo gira o sensor ultrassônico e o sensor PIR; quando a torre encontra algo que não faz parte do ambiente e que se mexe, ela trava no alvo, acende o laser e dispara o alarme. O Raspberry Pi funciona como servidor: recebe as leituras do Arduino pela USB, guarda o histórico e mostra um painel web que pode ser aberto no notebook ou no celular.
+A Torre Sentinela é um radar de segurança feito com o Master Kit da RoboCore. Um servo gira o sensor ultrassônico e o sensor PIR; quando a torre encontra algo que não faz parte do ambiente, ela confere, trava no alvo, acende o laser e dispara o alarme. O Raspberry Pi funciona como servidor: recebe as leituras do Arduino pela USB, guarda o histórico e mostra um painel web que pode ser aberto no notebook ou no celular.
 
 ## Integrantes
 
@@ -24,22 +24,24 @@ A Torre Sentinela é um radar de segurança feito com o Master Kit da RoboCore. 
 
 ### Detecção
 
-1. Ao armar, a torre espera 5 segundos e faz três varreduras para mapear o ambiente (paredes e móveis).
-2. Depois disso ela só considera alvo o que estiver mais perto que o mapa e for diferente da varredura anterior. Precisa de três leituras parecidas para travar.
-3. Quando trava, primeiro verifica sem alarme. Se o alvo se mexer ou o PIR confirmar movimento, vira alarme.
-4. Um objeto que fica parado sem o PIR confirmar entra no mapa e é ignorado.
-5. O PIR fica na parte que gira, então a leitura dele só vale com a torre parada.
+1. Ao armar, a torre espera 5 segundos e faz cinco varreduras para mapear o ambiente (paredes e móveis).
+2. Depois ela fica varrendo e comparando cada leitura com o mapa. Quando uma leitura vem mais perto que o mapa, ela repete a medida na hora; se a segunda bater, para ali para verificar.
+3. Na verificação a torre faz uma varredura curta em volta do ponto. Um objeto de verdade aparece em vários ângulos seguidos, um eco falso aparece em um só. Só o primeiro caso vira alarme.
+4. Com o alvo travado, a varredura curta continua e acompanha o alvo. Se ele sumir, a torre procura numa área maior antes de desistir.
+5. Um alvo que fica 20 segundos parado no mesmo lugar é conferido com o PIR: a torre para apontada para ele e, se o PIR não acusar movimento, o objeto entra no mapa e o alarme para.
+6. O PIR fica na parte que gira, então a leitura dele só vale com a torre parada.
+7. O buzzer só toca entre uma leitura e outra do ultrassônico, para o som não atrapalhar a medida.
 
 ### Estados
 
 | Estado | LED | O que faz |
 |---|---|---|
-| DESARMADO | verde | Parada, esperando o comando do painel |
+| DESARMADO | verde | Parada. Continua lendo o sensor para dar para testar pelo painel |
 | ARMANDO | amarelo piscando | 5 s para sair da área |
 | CALIBRANDO | amarelo piscando rápido | Mapeia o ambiente |
-| VIGIANDO | amarelo | Para em 3 posições e observa com o PIR e o ultrassônico |
-| VARRENDO | vermelho/amarelo | Varre de 15° a 165° procurando o alvo |
-| TRAVADO | vermelho piscando | Laser no alvo, bipes cada vez mais rápidos; sirene quando chega perto |
+| VIGIANDO | amarelo | Só com a varredura contínua desligada: para em 3 posições e espera o PIR |
+| VARRENDO | vermelho/amarelo | Varre de 15° a 165° comparando com o mapa |
+| TRAVADO | amarelo piscando, depois vermelho | Verifica e, se confirmar, liga o laser e o alarme; sirene quando chega perto |
 | MANUAL | verde piscando | Mira e laser controlados pelo painel |
 
 ## Componentes
@@ -91,7 +93,7 @@ Antes de colar a cruzeta no servo, grave o código: ao ligar, o servo vai para a
 
 1. Abra `arduino/torre_sentinela/torre_sentinela.ino` na Arduino IDE 2. As bibliotecas usadas (Servo, LiquidCrystal e EEPROM) já vêm com a IDE.
 2. Selecione a placa **Arduino Uno** e a porta, e carregue o código.
-3. No Monitor Serial (115200 baud) deve aparecer `OI,TorreSentinela,3.1`. O comando `STATUS` responde com o estado e a configuração.
+3. A versão aparece no LCD com a torre desarmada. No Monitor Serial (115200 baud) deve aparecer `OI,TorreSentinela,4.0`. O comando `STATUS` responde com o estado e a configuração.
 4. Depois de testar, ligue o Arduino na USB do Raspberry Pi.
 
 ### Raspberry Pi
@@ -130,7 +132,9 @@ E abra `http://localhost:5000`.
 
 ![Painel](docs/img/painel.png)
 
-No painel dá para armar e desarmar, ver o radar com o mapa do ambiente, controlar a mira e o laser no modo manual, ajustar o alcance, a área de varredura e a tolerância ao mapa, programar horários para armar e desarmar e ver os incidentes e as estatísticas dos últimos 7 dias. Cada incidente é classificado como pessoa, falso alarme, movimento fora do alcance ou indefinido.
+No painel dá para armar e desarmar, ver o radar com o mapa do ambiente, controlar a mira e o laser no modo manual, ajustar o alcance, a área de varredura e a tolerância ao mapa, programar horários para armar e desarmar e ver os incidentes. Cada incidente é classificado como intruso, objeto parado, movimento fora do alcance ou indefinido.
+
+A parte de diagnóstico mostra a versão do firmware, a porcentagem de leituras do ultrassônico que voltam sem eco, o estado do PIR e quantas vezes o Arduino reiniciou sozinho. Isso ajuda a separar problema de fio ou de alimentação de problema de código.
 
 ## Estrutura
 
